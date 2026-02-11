@@ -31,7 +31,6 @@
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="MainExecutable" Guid="*">
         <File Id="ChemValidatorExe" Source="$(var.SourceExe)" KeyPath="yes" />
-        <RegistryValue Root="HKLM" Key="Software\c1au6i0\ChemValidator" Name="installed" Type="integer" Value="1" KeyPath="no" />
       </Component>
     </DirectoryRef>
 

@@ -61,8 +61,17 @@ jobs:
           while ($parts.Length -lt 4) { $parts += "0" }
           $wixVersion = ($parts[0..3] -join '.')
 
-          candle.exe installer\windows\chem-validator.wxs -dProductVersion=$wixVersion -out installer\windows\chem-validator.wixobj
-          light.exe installer\windows\chem-validator.wixobj -out dist\chem-validator.msi
+          Write-Host "Building MSI with version: $wixVersion"
+
+          & candle.exe installer\windows\chem-validator.wxs "-dProductVersion=$wixVersion" -out installer\windows\chem-validator.wixobj
+          & light.exe installer\windows\chem-validator.wixobj -out dist\chem-validator.msi -sice:ICE61
+
+          if (Test-Path dist\chem-validator.msi) {
+            Write-Host "MSI built successfully at dist\chem-validator.msi"
+          } else {
+            Write-Host "WARNING: MSI file not found after build"
+            exit 1
+          }
 
       - name: Upload artifact (Linux)
         if: runner.os == 'Linux'
