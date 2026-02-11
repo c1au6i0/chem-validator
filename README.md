@@ -168,3 +168,7 @@ Produces a standalone executable in `dist/`:
 | pytest-mock | Test mocking utilities |
 | pyinstaller | Standalone executable builds |
 | pre-commit | Git hook management |
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
