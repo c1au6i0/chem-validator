@@ -37,6 +37,13 @@ jobs:
       - name: Build executable
         run: pixi run build
 
+      - name: Ad-hoc sign macOS app (best-effort)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          codesign --force --deep --sign - dist/chem-validator.app
+          codesign --verify --deep --strict dist/chem-validator.app
+
       - name: Install WiX Toolset (Windows)
         if: runner.os == 'Windows'
         run: choco install wixtoolset -y
@@ -91,7 +98,10 @@ jobs:
 
       - name: Zip macOS app bundle
         if: runner.os == 'macOS'
-        run: cd dist && zip -r chem-validator-macos.zip chem-validator.app
+        run: |
+          cd dist
+          # Use ditto to preserve app bundle metadata/permissions.
+          ditto -c -k --sequesterRsrc --keepParent chem-validator.app chem-validator-macos.zip
 
       - name: Upload artifact (macOS)
         if: runner.os == 'macOS'

@@ -169,6 +169,12 @@ Produces a standalone executable in `dist/`:
 
 For GitHub Releases on macOS, the app is typically distributed as a zip (e.g. `chem-validator-macos.zip`). Unzip it and then open `chem-validator.app`.
 
+If macOS says the app is "damaged" after downloading, this is usually Gatekeeper quarantine on unsigned apps. You can right-click the app and choose Open, or remove the quarantine attribute:
+
+```bash
+xattr -dr com.apple.quarantine "/path/to/chem-validator.app"
+```
+
 For GitHub Releases on Windows, a `.msi` installer may also be provided (e.g. `chem-validator-windows.msi`).
 
 ### Dependencies
