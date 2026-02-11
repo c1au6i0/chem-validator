@@ -119,13 +119,21 @@ class UnifiedChemicalValidator:
 
         return name_col, cas_col, smiles_col
 
-    def query_pubchem_cid_and_inchikey(self, identifier: Optional[str], namespace: str = 'name') -> Tuple[Optional[str], Optional[str]]:
+    def query_pubchem_cid_and_inchikey(
+        self,
+        identifier: Optional[str],
+        namespace: str = 'name',
+        max_retries: int = 3,
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Query PubChem for CID and InChIKey with rate limiting.
+        Query PubChem for CID and InChIKey with rate limiting and retry.
+
+        Retries on HTTP 503 / ServerBusy errors with exponential back-off.
 
         Args:
             identifier: Chemical identifier string (name, CAS, or SMILES)
             namespace: PubChem namespace to search ('name' or 'smiles')
+            max_retries: Number of retry attempts on transient errors
 
         Returns:
             Tuple of (cid, inchikey), both None if not found
@@ -133,40 +141,58 @@ class UnifiedChemicalValidator:
         if not identifier:
             return None, None
 
-        try:
-            self._last_pubchem_error = None
-            import pubchempy as pcp
+        import pubchempy as pcp
 
-            time.sleep(0.2)  # Rate limiting
-            compounds = pcp.get_compounds(identifier, namespace)
-            if compounds:
-                compound = compounds[0]
-                cid = compound.cid
-                inchikey = compound.inchikey if hasattr(compound, 'inchikey') else None
-                return cid, inchikey
-        except Exception as e:
-            self._last_pubchem_error = f"{type(e).__name__}: {e}"
-            logger.warning(f"PubChem query failed ({namespace}) for '{identifier}': {self._last_pubchem_error}")
+        self._last_pubchem_error = None
+
+        for attempt in range(max_retries):
+            try:
+                delay = 0.4 * (attempt + 1)  # 0.4s, 0.8s, 1.2s
+                time.sleep(delay)
+                compounds = pcp.get_compounds(identifier, namespace)
+                if compounds:
+                    compound = compounds[0]
+                    cid = compound.cid
+                    inchikey = compound.inchikey if hasattr(compound, 'inchikey') else None
+                    return cid, inchikey
+                return None, None  # found nothing – no point retrying
+            except Exception as e:
+                self._last_pubchem_error = f"{type(e).__name__}: {e}"
+                err_lower = str(e).lower()
+                is_transient = any(kw in err_lower for kw in ("503", "busy", "timeout", "ssl"))
+                if is_transient and attempt < max_retries - 1:
+                    logger.debug(f"PubChem transient error ({namespace}) for '{identifier}', retry {attempt + 1}: {e}")
+                    continue
+                logger.warning(f"PubChem query failed ({namespace}) for '{identifier}': {self._last_pubchem_error}")
 
         return None, None
 
-    def get_smiles_from_pubchem(self, cid: str) -> Optional[str]:
-        """Retrieve SMILES from PubChem CID."""
+    def get_smiles_from_pubchem(self, cid: str, max_retries: int = 3) -> Optional[str]:
+        """Retrieve SMILES from PubChem CID with retry on transient errors."""
         if not cid:
             return None
 
-        try:
-            self._last_pubchem_error = None
-            import pubchempy as pcp
+        import pubchempy as pcp
 
-            time.sleep(0.2)
-            compound = pcp.Compound.from_cid(cid)
-            smiles = compound.smiles if hasattr(compound, 'smiles') else None
-            return smiles
-        except Exception as e:
-            self._last_pubchem_error = f"{type(e).__name__}: {e}"
-            logger.warning(f"Failed to retrieve SMILES for CID {cid}: {e}")
-            return None
+        self._last_pubchem_error = None
+
+        for attempt in range(max_retries):
+            try:
+                delay = 0.4 * (attempt + 1)
+                time.sleep(delay)
+                compound = pcp.Compound.from_cid(cid)
+                smiles = compound.smiles if hasattr(compound, 'smiles') else None
+                return smiles
+            except Exception as e:
+                self._last_pubchem_error = f"{type(e).__name__}: {e}"
+                err_lower = str(e).lower()
+                is_transient = any(kw in err_lower for kw in ("503", "busy", "timeout", "ssl"))
+                if is_transient and attempt < max_retries - 1:
+                    logger.debug(f"PubChem transient error for CID {cid}, retry {attempt + 1}: {e}")
+                    continue
+                logger.warning(f"Failed to retrieve SMILES for CID {cid}: {e}")
+
+        return None
 
     def retrieve_smiles(self, row_num: int, name: Optional[str], cas: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
         """
@@ -623,6 +649,16 @@ class UnifiedChemicalValidator:
                 all_df[col] = None
 
         all_df = all_df[column_order]
+
+        # Convert CID / group columns to nullable integers so they
+        # appear as "180" instead of "180.0" in the Excel output.
+        int_cols = [
+            'row_number', 'cid_by_name', 'cid_by_cas', 'cid_by_smiles',
+            'validated_cid', 'exact_duplicate_group', 'stereo_duplicate_group',
+        ]
+        for col in int_cols:
+            if col in all_df.columns:
+                all_df[col] = pd.to_numeric(all_df[col], errors='coerce').astype('Int64')
 
         # Write to Excel with formatting
         try:
