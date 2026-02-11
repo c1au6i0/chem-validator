@@ -80,20 +80,14 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist/chem-validator
 
-      - name: Upload artifact (Windows EXE)
+      - name: Upload artifact (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/chem-validator.exe
-
-      - name: Upload artifact (Windows MSI)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/chem-validator.msi
-          if-no-files-found: ignore
+          path: |
+            dist/chem-validator.exe
+            dist/chem-validator.msi
 
       - name: Zip macOS app bundle
         if: runner.os == 'macOS'
