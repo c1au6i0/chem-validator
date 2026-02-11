@@ -160,6 +160,8 @@ Pre-commit hooks automatically run fast tests and verify 80% coverage before eac
 pixi run build
 ```
 
+Packaging is done with PyInstaller via `build.spec`.
+
 Produces a standalone executable in `dist/`:
 - **Linux:** `dist/chem-validator`
 - **Windows:** `dist/chem-validator.exe`
