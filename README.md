@@ -21,7 +21,7 @@ Provides both a GUI (Tkinter) and CLI interface. Distributed as standalone execu
 Requires [pixi](https://pixi.sh/) for environment management.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/c1au6i0/chem-validator.git
 cd chem-validator
 pixi install
 pixi run install-hooks
@@ -39,7 +39,7 @@ Or double-click the built executable — launches the GUI by default when no arg
 
 #### Startup Time Note
 
-PyInstaller-packaged apps can take a few seconds to start (especially on first launch) because they need to unpack bundled dependencies. On macOS, the first run may also include additional OS verification.
+On Windows and Linux, the standalone executable may take a few seconds to start (especially on first launch) because PyInstaller `onefile` builds unpack bundled dependencies to a temp directory. On macOS, the `.app` bundle uses `onedir` mode so startup is faster. The first run on macOS may also include additional OS verification (Gatekeeper).
 
 ### CLI
 
