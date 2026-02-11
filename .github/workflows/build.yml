@@ -1,0 +1,93 @@
+name: Build Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: chem-validator-linux
+            asset_name: chem-validator-linux
+          - os: windows-latest
+            artifact_name: chem-validator-windows
+            asset_name: chem-validator-windows.exe
+          - os: macos-latest
+            artifact_name: chem-validator-macos
+            asset_name: chem-validator-macos
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.46.0
+
+      - name: Install dependencies
+        run: pixi install
+
+      - name: Run fast tests
+        run: pixi run test-fast
+
+      - name: Build executable
+        run: pixi run build
+
+      - name: Upload artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/chem-validator
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/chem-validator.exe
+
+      - name: Upload artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/chem-validator
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          cp artifacts/chem-validator-linux/chem-validator release/chem-validator-linux
+          cp artifacts/chem-validator-windows/chem-validator.exe release/chem-validator-windows.exe
+          cp artifacts/chem-validator-macos/chem-validator release/chem-validator-macos
+          chmod +x release/chem-validator-linux release/chem-validator-macos
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/chem-validator-linux
+            release/chem-validator-windows.exe
+            release/chem-validator-macos
+          generate_release_notes: true
