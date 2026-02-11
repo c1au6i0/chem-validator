@@ -1,0 +1,38 @@
+[project]
+name = "chem-validator"
+version = "0.1.0"
+description = "Chemical CSV Validator with PubChem Integration"
+authors = ["heverz"]
+channels = ["conda-forge"]
+platforms = ["win-64", "osx-64", "linux-64"]
+
+[dependencies]
+python = "3.13.*"
+pandas = ">=2.0.0"
+pubchempy = ">=1.0.4"
+openpyxl = ">=3.1.0"
+pytest = ">=8.0.0"
+pytest-cov = ">=4.1.0"
+pytest-mock = ">=3.12.0"
+pyinstaller = ">=6.0.0"
+pre-commit = ">=3.5.0"
+
+[tasks]
+# Development
+gui = "python -m src.main"
+cli = { cmd = "python -m src.cli", description = "Run CLI validator" }
+
+# Testing
+test = { cmd = "pytest tests/ -v", description = "Run all tests" }
+test-fast = { cmd = "pytest tests/ -m fast -v", description = "Run only fast tests" }
+test-slow = { cmd = "pytest tests/ -m slow -v", description = "Run only slow tests" }
+test-coverage = { cmd = "pytest tests/ --cov=src --cov-report=term --cov-report=html", description = "Run tests with coverage report" }
+coverage-check = { cmd = "pytest tests/ -m fast --cov=src --cov-fail-under=80 -q", description = "Check 80% coverage threshold" }
+
+# Building
+build = { cmd = "pyinstaller build.spec", description = "Build standalone executable" }
+clean = { cmd = "rm -rf build/ dist/ __pycache__ .pytest_cache htmlcov/ src/__pycache__ tests/__pycache__", description = "Clean build artifacts" }
+
+# Pre-commit
+install-hooks = { cmd = "pre-commit install", description = "Install pre-commit hooks" }
+run-hooks = { cmd = "pre-commit run --all-files", description = "Run hooks manually" }

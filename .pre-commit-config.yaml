@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: test-fast
+        name: fast tests
+        entry: pixi run test-fast
+        language: system
+        pass_filenames: false
+
+      - id: coverage-check
+        name: coverage check (80%)
+        entry: pixi run coverage-check
+        language: system
+        pass_filenames: false
