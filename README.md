@@ -108,6 +108,8 @@ Excel file named `validation_results_{input}_{timestamp}.xlsx` containing:
 | `identifier_not_found` | One or more identifiers not found in PubChem |
 | `exact_duplicate` | Full InChIKey matches a previously validated chemical |
 | `complex_chemical_no_smiles` | PubChem has the compound but no SMILES available |
+| `invalid_smiles` | SMILES string is not a valid/parseable structure |
+| `invalid_cas` | CAS number is malformed or fails the CAS check digit |
 
 ## Development
 

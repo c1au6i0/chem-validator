@@ -125,7 +125,7 @@ def test_validate_chemical_all_match(validator, mocker):
         ("123", "INCHIKEY123"),  # by smiles
     ])
 
-    result = validator.validate_chemical(1, "Test", "123-45-6", "C(=O)C")
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
     assert result["status"] == "validated"
     assert result["validated_cid"] == "123"
     assert result["validated_inchikey"] == "INCHIKEY123"
@@ -141,7 +141,7 @@ def test_validate_chemical_discordance(validator, mocker):
         ("123", "IK1"),  # by smiles
     ])
 
-    result = validator.validate_chemical(1, "Test", "123-45-6", "C(=O)C")
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
     assert result["status"] == "rejected"
     assert result["rejection_reason"] == "pubchem_discordance"
 
@@ -155,7 +155,7 @@ def test_validate_chemical_two_found_agree(validator, mocker):
         (None, None),     # smiles not found
     ])
 
-    result = validator.validate_chemical(1, "Test", "123-45-6", "C(=O)C")
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
     assert result["status"] == "rejected"
     assert result["rejection_reason"] == "identifier_not_found"
 
@@ -169,9 +169,48 @@ def test_validate_chemical_two_found_disagree(validator, mocker):
         (None, None),     # smiles not found
     ])
 
-    result = validator.validate_chemical(1, "Test", "123-45-6", "C(=O)C")
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
     assert result["status"] == "rejected"
     assert result["rejection_reason"] == "identifier_not_found_and_pubchem_discordance"
+
+
+@pytest.mark.fast
+def test_validate_chemical_invalid_smiles_rejected(validator, mocker):
+    """Invalid SMILES (PubChem 400) is rejected as invalid_smiles."""
+    validator.smiles_retrieval_mode = False
+
+    mock_compound = MagicMock()
+    mock_compound.cid = "241"
+    mock_compound.inchikey = "UHOVQNZJYSORNB"
+
+    mocker.patch(
+        "pubchempy.get_compounds",
+        side_effect=[
+            [mock_compound],
+            [mock_compound],
+            Exception(
+                "PubChem HTTP Error 400 PUGREST.BadRequest: Unable to standardize the given structure"
+            ),
+        ],
+    )
+    mocker.patch("src.validator.time.sleep")
+
+    result = validator.validate_chemical(1, "Benzene", "71-43-2", "Cdd")
+    assert result["status"] == "rejected"
+    assert result["rejection_reason"] == "invalid_smiles"
+
+
+@pytest.mark.fast
+def test_validate_chemical_invalid_cas_rejected(validator, mocker):
+    """Invalid CAS is rejected as invalid_cas before PubChem queries."""
+    validator.smiles_retrieval_mode = False
+
+    mock_get = mocker.patch("pubchempy.get_compounds")
+
+    result = validator.validate_chemical(1, "Benzene", "71-43-3", "c1ccccc1")
+    assert result["status"] == "rejected"
+    assert result["rejection_reason"] == "invalid_cas"
+    mock_get.assert_not_called()
 
 
 @pytest.mark.fast
@@ -179,7 +218,7 @@ def test_validate_chemical_none_found(validator, mocker):
     """None of the identifiers found."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None))
 
-    result = validator.validate_chemical(1, "Test", "123-45-6", "C(=O)C")
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
     assert result["status"] == "rejected"
     assert result["rejection_reason"] == "identifier_not_found"
 
@@ -395,6 +434,23 @@ def test_query_pubchem_exception(validator, mocker):
     cid, inchikey = validator.query_pubchem_cid_and_inchikey("badquery", "name")
     assert cid is None
     assert inchikey is None
+
+
+@pytest.mark.fast
+def test_query_pubchem_bad_request_no_retry(validator, mocker):
+    """BadRequest (HTTP 400) is treated as non-transient (no retry)."""
+    mock_get = mocker.patch(
+        "pubchempy.get_compounds",
+        side_effect=Exception(
+            "PubChem HTTP Error 400 PUGREST.BadRequest: Unable to standardize the given structure"
+        ),
+    )
+    mocker.patch("src.validator.time.sleep")
+
+    cid, inchikey = validator.query_pubchem_cid_and_inchikey("Cdd", "smiles")
+    assert cid is None
+    assert inchikey is None
+    assert mock_get.call_count == 1
 
 
 @pytest.mark.fast

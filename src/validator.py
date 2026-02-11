@@ -111,10 +111,12 @@ class UnifiedChemicalValidator:
         if _is_missing(cas):
             return None
 
-        cas_str = str(cas).strip()
+        raw_str = str(cas).strip()
 
         # Replace any run of non-digits (unicode dashes, slashes, spaces, etc.) with a single dash
-        cas_str = re.sub(r"[^\d]+", "-", cas_str).strip("-")
+        cas_str = re.sub(r"[^\d]+", "-", raw_str).strip("-")
+        if not cas_str:
+            return raw_str
 
         digits_only = cas_str.replace("-", "")
         if not digits_only.isdigit() or len(digits_only) < 5:
@@ -124,6 +126,30 @@ class UnifiedChemicalValidator:
         middle = digits_only[-3:-1]
         first = digits_only[:-3]
         return f"{first}-{middle}-{check_digit}"
+
+    def is_valid_cas(self, cas: Any) -> bool:
+        """Validate a normalized CAS number including the check digit.
+
+        Args:
+            cas: CAS string, ideally normalized to XXXXX-XX-X
+
+        Returns:
+            True when CAS matches the expected pattern and check digit.
+        """
+        if _is_missing(cas):
+            return False
+
+        cas_str = str(cas).strip()
+        if not re.fullmatch(r"\d{2,7}-\d{2}-\d", cas_str):
+            return False
+
+        digits = cas_str.replace("-", "")
+        check_digit = int(digits[-1])
+        body = digits[:-1]
+        total = 0
+        for i, ch in enumerate(reversed(body), start=1):
+            total += int(ch) * i
+        return (total % 10) == check_digit
 
     def identify_columns(self, df: "pd.DataFrame") -> Tuple[str, str, Optional[str]]:
         """
@@ -194,6 +220,9 @@ class UnifiedChemicalValidator:
 
         self._last_pubchem_error = None
 
+        # Used by callers to classify failures (e.g., invalid SMILES).
+        self._last_pubchem_error_kind: Optional[str] = None
+
         for attempt in range(max_retries):
             try:
                 delay = 0.4 * (attempt + 1)  # 0.4s, 0.8s, 1.2s
@@ -208,6 +237,18 @@ class UnifiedChemicalValidator:
             except Exception as e:
                 self._last_pubchem_error = f"{type(e).__name__}: {e}"
                 err_lower = str(e).lower()
+                is_bad_input = any(
+                    kw in err_lower
+                    for kw in (
+                        "pugrest.badrequest",
+                        "badrequest",
+                        "status: 400",
+                        "http error 400",
+                        "unable to standardize",
+                    )
+                )
+                if is_bad_input:
+                    self._last_pubchem_error_kind = "bad_input"
                 if "certificate_verify_failed" in err_lower:
                     logger.warning(
                         "TLS certificate verification failed. If you're behind a corporate proxy/SSL inspection, "
@@ -218,6 +259,9 @@ class UnifiedChemicalValidator:
                     logger.debug(f"PubChem transient error ({namespace}) for '{identifier}', retry {attempt + 1}: {e}")
                     continue
                 logger.warning(f"PubChem query failed ({namespace}) for '{identifier}': {self._last_pubchem_error}")
+
+                # Non-transient failures should not be retried.
+                break
 
         return None, None
 
@@ -247,6 +291,9 @@ class UnifiedChemicalValidator:
                     logger.debug(f"PubChem transient error for CID {cid}, retry {attempt + 1}: {e}")
                     continue
                 logger.warning(f"Failed to retrieve SMILES for CID {cid}: {e}")
+
+                # Non-transient failures should not be retried.
+                break
 
         return None
 
@@ -392,6 +439,12 @@ class UnifiedChemicalValidator:
         cas_normalized = self.normalize_cas(cas)
         result['cas'] = cas_normalized
 
+        # Reject invalid CAS (format/check-digit) when provided.
+        if not _is_missing(cas) and cas_normalized and not self.is_valid_cas(cas_normalized):
+            result['status'] = 'rejected'
+            result['rejection_reason'] = 'invalid_cas'
+            return result
+
         # Query PubChem for all three identifiers
 
         # Query by Name
@@ -416,6 +469,19 @@ class UnifiedChemicalValidator:
 
         # Query by SMILES
         cid_by_smiles, inchikey_by_smiles = self.query_pubchem_cid_and_inchikey(smiles, 'smiles')
+        if (cid_by_smiles is None) and getattr(self, "_last_pubchem_error_kind", None) == "bad_input":
+            result['status'] = 'rejected'
+            result['rejection_reason'] = 'invalid_smiles'
+            result['cid_by_name'] = cid_by_name
+            result['cid_by_cas'] = cid_by_cas
+            result['cid_by_smiles'] = None
+            result['inchikey_by_name'] = inchikey_by_name
+            result['inchikey_by_cas'] = inchikey_by_cas
+            result['inchikey_by_smiles'] = None
+            if self._last_pubchem_error:
+                pubchem_errors.append(f"smiles={self._last_pubchem_error}")
+                result['pubchem_error'] = "; ".join(pubchem_errors)
+            return result
         if self._last_pubchem_error:
             pubchem_errors.append(f"smiles={self._last_pubchem_error}")
         result['cid_by_smiles'] = cid_by_smiles
