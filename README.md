@@ -1,5 +1,10 @@
 # Chem Validator
 
+[![Build Executables](https://github.com/c1au6i0/chem-validator/actions/workflows/build.yml/badge.svg)](https://github.com/c1au6i0/chem-validator/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/c1au6i0/chem-validator)](https://github.com/c1au6i0/chem-validator/releases)
+[![License](https://img.shields.io/github/license/c1au6i0/chem-validator)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
+
 Chemical CSV validator with PubChem integration. Validates Name, CAS, and SMILES identifiers against the PubChem database, detects duplicates and stereoisomers, and exports results to Excel.
 
 Provides both a GUI (Tkinter) and CLI interface. Distributed as standalone executables for Windows and macOS — no Python installation required.
