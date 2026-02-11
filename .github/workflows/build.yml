@@ -52,7 +52,15 @@ jobs:
             $version = "0.0.0"
           }
 
-          candle.exe installer\windows\chem-validator.wxs -dProductVersion=$version -out installer\windows\chem-validator.wixobj
+          if ($version -notmatch '^[0-9]+(\.[0-9]+){0,3}$') {
+            $version = "0.0.0"
+          }
+
+          $parts = $version.Split('.')
+          while ($parts.Length -lt 4) { $parts += "0" }
+          $wixVersion = ($parts[0..3] -join '.')
+
+          candle.exe installer\windows\chem-validator.wxs -dProductVersion=$wixVersion -out installer\windows\chem-validator.wixobj
           light.exe installer\windows\chem-validator.wixobj -out dist\chem-validator.msi
 
       - name: Upload artifact (Linux)

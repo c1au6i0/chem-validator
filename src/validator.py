@@ -31,6 +31,7 @@ class UnifiedChemicalValidator:
         self.output_folder = output_folder
         self.validation_results: List[Dict[str, Any]] = []
         self.smiles_retrieval_mode = False
+        self._last_pubchem_error: Optional[str] = None
 
     def normalize_cas(self, cas: Any) -> Optional[str]:
         """
@@ -124,6 +125,7 @@ class UnifiedChemicalValidator:
             return None, None
 
         try:
+            self._last_pubchem_error = None
             import pubchempy as pcp
 
             time.sleep(0.2)  # Rate limiting
@@ -134,8 +136,8 @@ class UnifiedChemicalValidator:
                 inchikey = compound.inchikey if hasattr(compound, 'inchikey') else None
                 return cid, inchikey
         except Exception as e:
-            logger.debug(f"PubChem query failed for {identifier}: {e}")
-            pass
+            self._last_pubchem_error = f"{type(e).__name__}: {e}"
+            logger.warning(f"PubChem query failed ({namespace}) for '{identifier}': {self._last_pubchem_error}")
 
         return None, None
 
@@ -145,6 +147,7 @@ class UnifiedChemicalValidator:
             return None
 
         try:
+            self._last_pubchem_error = None
             import pubchempy as pcp
 
             time.sleep(0.2)
@@ -152,6 +155,7 @@ class UnifiedChemicalValidator:
             smiles = compound.smiles if hasattr(compound, 'smiles') else None
             return smiles
         except Exception as e:
+            self._last_pubchem_error = f"{type(e).__name__}: {e}"
             logger.warning(f"Failed to retrieve SMILES for CID {cid}: {e}")
             return None
 
@@ -225,6 +229,8 @@ class UnifiedChemicalValidator:
 
         logger.info(f"Row {row_num}: {name}")
 
+        pubchem_errors: List[str] = []
+
         result = {
             'row_number': row_num,
             'name': name,
@@ -242,6 +248,7 @@ class UnifiedChemicalValidator:
             'validated_canonical_inchikey_14': None,
             'status': 'unknown',
             'rejection_reason': None,
+            'pubchem_error': None,
             'exact_duplicate_group': None,
             'stereo_duplicate_group': None
         }
@@ -295,22 +302,33 @@ class UnifiedChemicalValidator:
 
         # Query by Name
         cid_by_name, inchikey_by_name = self.query_pubchem_cid_and_inchikey(name, 'name')
+        if self._last_pubchem_error:
+            pubchem_errors.append(f"name={self._last_pubchem_error}")
         result['cid_by_name'] = cid_by_name
         result['inchikey_by_name'] = inchikey_by_name
 
         # Query by CAS
         cid_by_cas, inchikey_by_cas = self.query_pubchem_cid_and_inchikey(cas_normalized, 'name')
+        if self._last_pubchem_error:
+            pubchem_errors.append(f"cas={self._last_pubchem_error}")
         if not cid_by_cas and cas_normalized:
             cid_by_cas, inchikey_by_cas = self.query_pubchem_cid_and_inchikey(
                 cas_normalized.replace('-', ''), 'name'
             )
+            if self._last_pubchem_error:
+                pubchem_errors.append(f"cas_no_dash={self._last_pubchem_error}")
         result['cid_by_cas'] = cid_by_cas
         result['inchikey_by_cas'] = inchikey_by_cas
 
         # Query by SMILES
         cid_by_smiles, inchikey_by_smiles = self.query_pubchem_cid_and_inchikey(smiles, 'smiles')
+        if self._last_pubchem_error:
+            pubchem_errors.append(f"smiles={self._last_pubchem_error}")
         result['cid_by_smiles'] = cid_by_smiles
         result['inchikey_by_smiles'] = inchikey_by_smiles
+
+        if pubchem_errors:
+            result['pubchem_error'] = "; ".join(pubchem_errors)
 
         # Analyze what we found
         found_cids = {}
@@ -352,7 +370,10 @@ class UnifiedChemicalValidator:
 
         else:
             result['status'] = 'rejected'
-            result['rejection_reason'] = 'identifier_not_found'
+            if pubchem_errors:
+                result['rejection_reason'] = 'pubchem_query_failed'
+            else:
+                result['rejection_reason'] = 'identifier_not_found'
             return result
 
     def check_exact_duplicates(self) -> bool:
@@ -564,6 +585,7 @@ class UnifiedChemicalValidator:
             'validated_canonical_inchikey_14',
             'status',
             'rejection_reason',
+            'pubchem_error',
             'exact_duplicate_group',
             'stereo_duplicate_group'
         ]
