@@ -4,12 +4,10 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
-# Third-party
-import pandas as pd
-import pubchempy as pcp
-from openpyxl.utils import get_column_letter
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +45,15 @@ class UnifiedChemicalValidator:
         Returns:
             Normalized CAS string in format XXXXX-XX-X, or None if invalid
         """
-        if pd.isna(cas) or not cas:
+        if cas is None:
             return None
 
         cas_str = str(cas).strip()
         if not cas_str:
+            return None
+
+        # Handle common missing-value sentinels from dataframes.
+        if cas_str.lower() == "nan" or cas_str == "<NA>":
             return None
 
         # Replace any run of non-digits (unicode dashes, slashes, spaces, etc.) with a single dash
@@ -66,7 +68,7 @@ class UnifiedChemicalValidator:
         first = digits_only[:-3]
         return f"{first}-{middle}-{check_digit}"
 
-    def identify_columns(self, df: pd.DataFrame) -> Tuple[str, str, Optional[str]]:
+    def identify_columns(self, df: "pd.DataFrame") -> Tuple[str, str, Optional[str]]:
         """
         Identify Name, CAS, and optionally SMILES columns in the dataframe.
 
@@ -122,6 +124,8 @@ class UnifiedChemicalValidator:
             return None, None
 
         try:
+            import pubchempy as pcp
+
             time.sleep(0.2)  # Rate limiting
             compounds = pcp.get_compounds(identifier, namespace)
             if compounds:
@@ -141,6 +145,8 @@ class UnifiedChemicalValidator:
             return None
 
         try:
+            import pubchempy as pcp
+
             time.sleep(0.2)
             compound = pcp.Compound.from_cid(cid)
             smiles = compound.smiles if hasattr(compound, 'smiles') else None
@@ -439,6 +445,8 @@ class UnifiedChemicalValidator:
             progress_callback(f"Reading file: {self.input_path}")
 
         try:
+            import pandas as pd
+
             input_path = Path(self.input_path)
             if input_path.suffix.lower() in ['.xlsx', '.xls']:
                 df = pd.read_excel(self.input_path)
@@ -536,6 +544,7 @@ class UnifiedChemicalValidator:
             output_file = output_dir / filename
             logger.info(f"Output location: Custom folder ({self.output_folder})")
 
+        import pandas as pd
         all_df = pd.DataFrame(self.validation_results)
 
         column_order = [
@@ -568,6 +577,8 @@ class UnifiedChemicalValidator:
 
         # Write to Excel with formatting
         try:
+            from openpyxl.utils import get_column_letter
+
             with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
                 all_df.to_excel(writer, index=False, sheet_name='Validation Results')
 
@@ -581,7 +592,7 @@ class UnifiedChemicalValidator:
                 for i, col in enumerate(all_df.columns):
                     col_max = all_df[col].astype(str).str.len().max()
                     # col_max is NaN when the column is empty
-                    if pd.isna(col_max):
+                    if col_max != col_max:
                         col_max = 0
                     max_len = int(max(col_max, len(col))) + 2
                     # Cap width at 50 chars to avoid super wide columns

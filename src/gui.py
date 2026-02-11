@@ -1,4 +1,4 @@
-"""Tkinter GUI interface for the NCTP Chemical Validator."""
+"""Tkinter GUI interface for Chem Validator."""
 
 # Standard library
 import logging
@@ -26,7 +26,7 @@ class ValidatorGUI:
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("NCTP Chemical Validator")
+        self.root.title("Chem Validator")
         self.root.geometry("800x600")
 
         # Variables
@@ -210,7 +210,7 @@ class ValidatorGUI:
             self.root.after(0, lambda: self.run_btn.config(state='normal'))
 
 def main():
-    """Launch the Tkinter GUI for the NCTP Chemical Validator."""
+    """Launch the Tkinter GUI."""
     root = tk.Tk()
     app = ValidatorGUI(root)
     root.mainloop()

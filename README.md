@@ -37,6 +37,10 @@ pixi run gui
 
 Or double-click the built executable — launches the GUI by default when no arguments are provided.
 
+#### Startup Time Note
+
+PyInstaller-packaged apps can take a few seconds to start (especially on first launch) because they need to unpack bundled dependencies. On macOS, the first run may also include additional OS verification.
+
 ### CLI
 
 ```bash
@@ -155,6 +159,10 @@ Produces a standalone executable in `dist/`:
 - **Linux:** `dist/chem-validator`
 - **Windows:** `dist/chem-validator.exe`
 - **macOS:** `dist/chem-validator.app`
+
+For GitHub Releases on macOS, the app is typically distributed as a zip (e.g. `chem-validator-macos.zip`). Unzip it and then open `chem-validator.app`.
+
+For GitHub Releases on Windows, a `.msi` installer may also be provided (e.g. `chem-validator-windows.msi`).
 
 ### Dependencies
 

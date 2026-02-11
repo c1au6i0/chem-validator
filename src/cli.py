@@ -1,4 +1,4 @@
-"""Command-line interface for the NCTP Chemical Validator."""
+"""Command-line interface for Chem Validator."""
 
 # Standard library
 import argparse

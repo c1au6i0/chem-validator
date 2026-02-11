@@ -1,4 +1,4 @@
-"""Unit tests for the NCTP Chemical Validator."""
+"""Unit tests for Chem Validator."""
 
 # Standard library
 import os
@@ -370,7 +370,7 @@ def test_query_pubchem_success(validator, mocker):
     mock_compound = MagicMock()
     mock_compound.cid = "2244"
     mock_compound.inchikey = "BSYNRYMUTXBXSQ"
-    mocker.patch("src.validator.pcp.get_compounds", return_value=[mock_compound])
+    mocker.patch("pubchempy.get_compounds", return_value=[mock_compound])
     mocker.patch("src.validator.time.sleep")
 
     cid, inchikey = validator.query_pubchem_cid_and_inchikey("aspirin", "name")
@@ -389,7 +389,7 @@ def test_query_pubchem_empty_identifier(validator):
 @pytest.mark.fast
 def test_query_pubchem_exception(validator, mocker):
     """PubChem exception returns (None, None) gracefully."""
-    mocker.patch("src.validator.pcp.get_compounds", side_effect=Exception("timeout"))
+    mocker.patch("pubchempy.get_compounds", side_effect=Exception("timeout"))
     mocker.patch("src.validator.time.sleep")
 
     cid, inchikey = validator.query_pubchem_cid_and_inchikey("badquery", "name")
@@ -400,7 +400,7 @@ def test_query_pubchem_exception(validator, mocker):
 @pytest.mark.fast
 def test_query_pubchem_no_results(validator, mocker):
     """PubChem returns empty list -> (None, None)."""
-    mocker.patch("src.validator.pcp.get_compounds", return_value=[])
+    mocker.patch("pubchempy.get_compounds", return_value=[])
     mocker.patch("src.validator.time.sleep")
 
     cid, inchikey = validator.query_pubchem_cid_and_inchikey("unknown", "name")
@@ -415,7 +415,7 @@ def test_get_smiles_success(validator, mocker):
     """Retrieve SMILES from CID successfully."""
     mock_compound = MagicMock()
     mock_compound.smiles = "CC(=O)O"
-    mocker.patch("src.validator.pcp.Compound.from_cid", return_value=mock_compound)
+    mocker.patch("pubchempy.Compound.from_cid", return_value=mock_compound)
     mocker.patch("src.validator.time.sleep")
 
     result = validator.get_smiles_from_pubchem("2244")
@@ -431,7 +431,7 @@ def test_get_smiles_none_cid(validator):
 @pytest.mark.fast
 def test_get_smiles_exception(validator, mocker):
     """PubChem exception returns None gracefully."""
-    mocker.patch("src.validator.pcp.Compound.from_cid", side_effect=Exception("fail"))
+    mocker.patch("pubchempy.Compound.from_cid", side_effect=Exception("fail"))
     mocker.patch("src.validator.time.sleep")
 
     assert validator.get_smiles_from_pubchem("9999") is None
