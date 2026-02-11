@@ -175,6 +175,8 @@ If macOS says the app is "damaged" after downloading, this is usually Gatekeeper
 xattr -dr com.apple.quarantine "/path/to/chem-validator.app"
 ```
 
+If PubChem lookups fail with `CERTIFICATE_VERIFY_FAILED` and you are behind a corporate proxy/SSL inspection, set `CHEM_VALIDATOR_CA_BUNDLE` to a PEM file containing your organization's root CA certificate.
+
 For GitHub Releases on Windows, a `.msi` installer may also be provided (e.g. `chem-validator-windows.msi`).
 
 ### Dependencies

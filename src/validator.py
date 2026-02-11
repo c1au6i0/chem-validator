@@ -1,5 +1,6 @@
 # Standard library
 import logging
+import os
 import re
 import time
 from datetime import datetime
@@ -10,6 +11,8 @@ if TYPE_CHECKING:
     import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+_TLS_CONFIGURED = False
 
 
 def _is_missing(value: Any) -> bool:
@@ -25,6 +28,50 @@ def _is_missing(value: Any) -> bool:
         if s.lower() in {"nan", "<na>", "none", "null"}:
             return True
     return False
+
+
+def _ensure_ca_bundle_configured() -> None:
+    """Configure TLS trust for HTTPS requests.
+
+    This helps when running in PyInstaller bundles where the default
+    CA discovery may differ from a system Python install.
+
+    Priority:
+    1) Respect existing SSL_CERT_FILE/REQUESTS_CA_BUNDLE
+    2) Use CHEM_VALIDATOR_CA_BUNDLE if provided (corporate proxy/VPN root CA)
+    3) Use system trust store via truststore (if available)
+    4) Fall back to certifi bundle (if available)
+    """
+    global _TLS_CONFIGURED
+    if _TLS_CONFIGURED:
+        return
+    _TLS_CONFIGURED = True
+
+    if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
+        return
+
+    ca_bundle = os.environ.get("CHEM_VALIDATOR_CA_BUNDLE")
+    if ca_bundle:
+        os.environ.setdefault("SSL_CERT_FILE", ca_bundle)
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_bundle)
+        return
+
+    try:
+        import truststore  # type: ignore
+
+        truststore.inject_into_ssl()
+        return
+    except Exception:
+        pass
+
+    try:
+        import certifi  # type: ignore
+    except Exception:
+        return
+
+    cafile = certifi.where()
+    os.environ.setdefault("SSL_CERT_FILE", cafile)
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", cafile)
 
 class UnifiedChemicalValidator:
     """
@@ -141,6 +188,8 @@ class UnifiedChemicalValidator:
         if not identifier:
             return None, None
 
+        _ensure_ca_bundle_configured()
+
         import pubchempy as pcp
 
         self._last_pubchem_error = None
@@ -159,6 +208,11 @@ class UnifiedChemicalValidator:
             except Exception as e:
                 self._last_pubchem_error = f"{type(e).__name__}: {e}"
                 err_lower = str(e).lower()
+                if "certificate_verify_failed" in err_lower:
+                    logger.warning(
+                        "TLS certificate verification failed. If you're behind a corporate proxy/SSL inspection, "
+                        "set CHEM_VALIDATOR_CA_BUNDLE to your organization's root CA PEM file."
+                    )
                 is_transient = any(kw in err_lower for kw in ("503", "busy", "timeout", "ssl"))
                 if is_transient and attempt < max_retries - 1:
                     logger.debug(f"PubChem transient error ({namespace}) for '{identifier}', retry {attempt + 1}: {e}")
@@ -171,6 +225,8 @@ class UnifiedChemicalValidator:
         """Retrieve SMILES from PubChem CID with retry on transient errors."""
         if not cid:
             return None
+
+        _ensure_ca_bundle_configured()
 
         import pubchempy as pcp
 
