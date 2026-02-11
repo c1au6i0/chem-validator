@@ -267,3 +267,12 @@ def test_gui_start_validation_custom_with_path():
         mock_thread.assert_called_once()
         args = mock_thread.call_args
         assert args.kwargs["args"] == ("somefile.csv", "/my/custom/path")
+
+
+@pytest.mark.fast
+def test_gui_about_dialog():
+    """About dialog shows app metadata."""
+    app = _make_gui()
+    with patch("src.gui.messagebox") as mock_mb:
+        app.show_about()
+        mock_mb.showinfo.assert_called_once()

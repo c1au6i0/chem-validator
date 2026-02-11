@@ -8,6 +8,7 @@ from tkinter import ttk, filedialog, scrolledtext, messagebox
 
 # Local
 from src.validator import UnifiedChemicalValidator
+from src.app_meta import APP_NAME, COPYRIGHT, LICENSE, REPO_URL, __version__
 
 
 class ValidatorGUI:
@@ -38,6 +39,8 @@ class ValidatorGUI:
         self.setup_ui()
 
     def setup_ui(self):
+        self._setup_menu()
+
         # Main container
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -95,6 +98,24 @@ class ValidatorGUI:
         self.status_var = tk.StringVar(value="Ready")
         self.status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def _setup_menu(self) -> None:
+        menubar = tk.Menu(self.root)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label=f"About {APP_NAME}...", command=self.show_about)
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+        self.root.config(menu=menubar)
+
+    def show_about(self) -> None:
+        about_text = (
+            f"{APP_NAME} v{__version__}\n"
+            f"{COPYRIGHT}\n"
+            f"License: {LICENSE}\n"
+            f"Repo: {REPO_URL}"
+        )
+        messagebox.showinfo(f"About {APP_NAME}", about_text)
 
     def toggle_output_entry(self):
         if self.output_mode.get() == "custom":
