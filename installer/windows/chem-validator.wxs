@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?define ProductVersion="0.0.0" ?>
+  <?define SourceExe="dist\\chem-validator.exe" ?>
+
+  <Product
+    Id="*"
+    Name="Chem Validator"
+    Manufacturer="c1au6i0"
+    Version="$(var.ProductVersion)"
+    Language="1033"
+    UpgradeCode="7B6B2F61-0F5A-44E1-9AF6-1E34A3BCA0E7"
+  >
+    <Package
+      InstallerVersion="500"
+      Compressed="yes"
+      InstallScope="perMachine"
+    />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Chem Validator is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Chem Validator" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="ChemValidatorExe" Source="$(var.SourceExe)" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\\c1au6i0\\ChemValidator" Name="installed" Type="integer" Value="1" KeyPath="no" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="MainFeature" Title="Chem Validator" Level="1">
+      <ComponentRef Id="MainExecutable" />
+    </Feature>
+  </Product>
+</Wix>

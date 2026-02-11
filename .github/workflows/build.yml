@@ -37,6 +37,24 @@ jobs:
       - name: Build executable
         run: pixi run build
 
+      - name: Install WiX Toolset (Windows)
+        if: runner.os == 'Windows'
+        run: choco install wixtoolset -y
+
+      - name: Build MSI installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ref = "${{ github.ref_name }}"
+          if ($ref.StartsWith("v")) {
+            $version = $ref.Substring(1)
+          } else {
+            $version = "0.0.0"
+          }
+
+          candle.exe installer\windows\chem-validator.wxs -dProductVersion=$version -out installer\windows\chem-validator.wixobj
+          light.exe installer\windows\chem-validator.wixobj -out dist\chem-validator.msi
+
       - name: Upload artifact (Linux)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
@@ -49,7 +67,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/chem-validator.exe
+          path: |
+            dist/chem-validator.exe
+            dist/chem-validator.msi
 
       - name: Zip macOS app bundle
         if: runner.os == 'macOS'
@@ -80,6 +100,7 @@ jobs:
           mkdir -p release
           cp artifacts/chem-validator-linux/chem-validator release/chem-validator-linux
           cp artifacts/chem-validator-windows/chem-validator.exe release/chem-validator-windows.exe
+          cp artifacts/chem-validator-windows/chem-validator.msi release/chem-validator-windows.msi
           cp artifacts/chem-validator-macos/chem-validator-macos.zip release/chem-validator-macos.zip
           chmod +x release/chem-validator-linux
 
@@ -89,5 +110,6 @@ jobs:
           files: |
             release/chem-validator-linux
             release/chem-validator-windows.exe
+            release/chem-validator-windows.msi
             release/chem-validator-macos.zip
           generate_release_notes: true
