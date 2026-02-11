@@ -469,10 +469,12 @@ class UnifiedChemicalValidator:
             import pandas as pd
 
             input_path = Path(self.input_path)
+            # Read everything as strings to avoid Excel/CSV type coercion
+            # (e.g., CAS values turning into numbers/dates).
             if input_path.suffix.lower() in ['.xlsx', '.xls']:
-                df = pd.read_excel(self.input_path)
+                df = pd.read_excel(self.input_path, dtype=str)
             else:
-                df = pd.read_csv(self.input_path, encoding='utf-8')
+                df = pd.read_csv(self.input_path, encoding='utf-8', dtype=str)
         except Exception as e:
             logger.error(f"Error reading file: {e}")
             if progress_callback:
@@ -488,6 +490,19 @@ class UnifiedChemicalValidator:
             if progress_callback:
                 progress_callback(f"Error: {e}")
             return False
+
+        # Quick PubChem connectivity preflight. This helps distinguish
+        # "identifier not found" from "PubChem unreachable" in logs.
+        preflight_cid, _ = self.query_pubchem_cid_and_inchikey("water", "name")
+        if preflight_cid is None and self._last_pubchem_error:
+            msg = (
+                "PubChem connectivity check failed. "
+                "Results may be rejected due to network/SSL issues. "
+                f"Error: {self._last_pubchem_error}"
+            )
+            logger.warning(msg)
+            if progress_callback:
+                progress_callback(msg)
 
         if smiles_col is None:
             mask_keep = ~(

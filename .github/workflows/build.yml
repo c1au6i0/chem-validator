@@ -44,6 +44,7 @@ jobs:
       - name: Build MSI installer (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        continue-on-error: true
         run: |
           $ref = "${{ github.ref_name }}"
           if ($ref.StartsWith("v")) {
@@ -70,14 +71,20 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist/chem-validator
 
-      - name: Upload artifact (Windows)
+      - name: Upload artifact (Windows EXE)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            dist/chem-validator.exe
-            dist/chem-validator.msi
+          path: dist/chem-validator.exe
+
+      - name: Upload artifact (Windows MSI)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/chem-validator.msi
+          if-no-files-found: ignore
 
       - name: Zip macOS app bundle
         if: runner.os == 'macOS'
@@ -108,16 +115,14 @@ jobs:
           mkdir -p release
           cp artifacts/chem-validator-linux/chem-validator release/chem-validator-linux
           cp artifacts/chem-validator-windows/chem-validator.exe release/chem-validator-windows.exe
-          cp artifacts/chem-validator-windows/chem-validator.msi release/chem-validator-windows.msi
+          if [ -f artifacts/chem-validator-windows/chem-validator.msi ]; then
+            cp artifacts/chem-validator-windows/chem-validator.msi release/chem-validator-windows.msi
+          fi
           cp artifacts/chem-validator-macos/chem-validator-macos.zip release/chem-validator-macos.zip
           chmod +x release/chem-validator-linux
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/chem-validator-linux
-            release/chem-validator-windows.exe
-            release/chem-validator-windows.msi
-            release/chem-validator-macos.zip
+          files: release/*
           generate_release_notes: true
