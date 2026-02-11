@@ -12,9 +12,7 @@ from src.validator import UnifiedChemicalValidator
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
 
@@ -50,14 +48,26 @@ Output folder options:
         help='Output folder location (optional: use flag alone for auto subfolder, or specify custom path)'
     )
 
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug logging (useful for PubChem/network issues)'
+    )
+
     args = parser.parse_args()
+
+    if args.debug:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+        for handler in root_logger.handlers:
+            handler.setLevel(logging.DEBUG)
 
     if not Path(args.input_file).exists():
         logger.error(f"Not found: {args.input_file}")
         sys.exit(1)
 
     logger.info("=" * 70)
-    logger.info("UNIFIED CHEMICAL VALIDATOR (CLI)")
+    logger.info("CHEM VALIDATOR (CLI)")
     logger.info("=" * 70)
 
     validator = UnifiedChemicalValidator(args.input_file, args.output_folder)

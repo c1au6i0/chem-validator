@@ -11,6 +11,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _is_missing(value: Any) -> bool:
+    """Return True for None/NaN/empty string-like missing values."""
+    if value is None:
+        return True
+    if isinstance(value, float) and value != value:
+        return True
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return True
+        if s.lower() in {"nan", "<na>", "none", "null"}:
+            return True
+    return False
+
 class UnifiedChemicalValidator:
     """
     Validates chemical identifiers against PubChem database.
@@ -46,16 +61,10 @@ class UnifiedChemicalValidator:
         Returns:
             Normalized CAS string in format XXXXX-XX-X, or None if invalid
         """
-        if cas is None:
+        if _is_missing(cas):
             return None
 
         cas_str = str(cas).strip()
-        if not cas_str:
-            return None
-
-        # Handle common missing-value sentinels from dataframes.
-        if cas_str.lower() == "nan" or cas_str == "<NA>":
-            return None
 
         # Replace any run of non-digits (unicode dashes, slashes, spaces, etc.) with a single dash
         cas_str = re.sub(r"[^\d]+", "-", cas_str).strip("-")
@@ -236,7 +245,7 @@ class UnifiedChemicalValidator:
             'name': name,
             'cas': cas,
             'smiles': smiles,
-            'smiles_source': 'input' if smiles else None,
+            'smiles_source': 'input' if not _is_missing(smiles) else None,
             'cid_by_name': None,
             'cid_by_cas': None,
             'cid_by_smiles': None,
@@ -262,8 +271,11 @@ class UnifiedChemicalValidator:
             result['smiles'] = smiles
 
         name_ok = bool(name and str(name).strip())
-        cas_ok = bool(cas and str(cas).strip())
-        smiles_ok = bool(smiles and str(smiles).strip())
+        cas_ok = not _is_missing(cas)
+        smiles_ok = not _is_missing(smiles)
+
+        if _is_missing(name):
+            name_ok = False
 
         if self.smiles_retrieval_mode:
             # Retrieval mode: must have BOTH name and cas
