@@ -51,12 +51,16 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist/chem-validator.exe
 
+      - name: Zip macOS app bundle
+        if: runner.os == 'macOS'
+        run: cd dist && zip -r chem-validator-macos.zip chem-validator.app
+
       - name: Upload artifact (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/chem-validator
+          path: dist/chem-validator-macos.zip
 
   release:
     needs: build
@@ -76,8 +80,8 @@ jobs:
           mkdir -p release
           cp artifacts/chem-validator-linux/chem-validator release/chem-validator-linux
           cp artifacts/chem-validator-windows/chem-validator.exe release/chem-validator-windows.exe
-          cp artifacts/chem-validator-macos/chem-validator release/chem-validator-macos
-          chmod +x release/chem-validator-linux release/chem-validator-macos
+          cp artifacts/chem-validator-macos/chem-validator-macos.zip release/chem-validator-macos.zip
+          chmod +x release/chem-validator-linux
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -85,5 +89,5 @@ jobs:
           files: |
             release/chem-validator-linux
             release/chem-validator-windows.exe
-            release/chem-validator-macos
+            release/chem-validator-macos.zip
           generate_release_notes: true
