@@ -21,6 +21,7 @@ def test_cli_main_success(tmp_path, monkeypatch):
 
     mock_validator = MagicMock()
     mock_validator.validate_csv.return_value = True
+    mock_validator.fatal_error = None
 
     with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator):
         with pytest.raises(SystemExit) as exc_info:
@@ -41,6 +42,7 @@ def test_cli_main_failure(tmp_path, monkeypatch):
 
     mock_validator = MagicMock()
     mock_validator.validate_csv.return_value = False
+    mock_validator.fatal_error = None
 
     with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator):
         with pytest.raises(SystemExit) as exc_info:
@@ -68,6 +70,7 @@ def test_cli_main_output_folder_auto(tmp_path, monkeypatch):
 
     mock_validator = MagicMock()
     mock_validator.validate_csv.return_value = True
+    mock_validator.fatal_error = None
 
     with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator) as mock_cls:
         with pytest.raises(SystemExit):
@@ -86,8 +89,28 @@ def test_cli_main_output_folder_custom(tmp_path, monkeypatch):
 
     mock_validator = MagicMock()
     mock_validator.validate_csv.return_value = True
+    mock_validator.fatal_error = None
 
     with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator) as mock_cls:
         with pytest.raises(SystemExit):
             cli.main()
         mock_cls.assert_called_once_with(str(csv_file), custom)
+
+
+@pytest.mark.fast
+def test_cli_main_fatal_error_exits_2(tmp_path, monkeypatch):
+    """CLI exits 2 on fatal input errors and does not save results."""
+    csv_file = tmp_path / "input.csv"
+    csv_file.write_text("Name,CAS\na,b\n")
+    monkeypatch.setattr(sys, "argv", ["cli", str(csv_file)])
+
+    mock_validator = MagicMock()
+    mock_validator.validate_csv.return_value = False
+    mock_validator.fatal_error = "Could not parse file"
+
+    with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator):
+        with pytest.raises(SystemExit) as exc_info:
+            cli.main()
+        assert exc_info.value.code == 2
+
+    mock_validator.save_results.assert_not_called()

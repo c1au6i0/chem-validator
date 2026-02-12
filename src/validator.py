@@ -127,6 +127,7 @@ class UnifiedChemicalValidator:
         self.validation_results: List[Dict[str, Any]] = []
         self.smiles_retrieval_mode = False
         self._last_pubchem_error: Optional[str] = None
+        self.fatal_error: Optional[str] = None
 
     def normalize_cas(self, cas: Any) -> Optional[str]:
         """
@@ -667,6 +668,9 @@ class UnifiedChemicalValidator:
         Returns:
             True if no chemicals were rejected, False otherwise
         """
+        self.fatal_error = None
+        self.validation_results = []
+
         logger.info(f"Reading file: {self.input_path}")
         if progress_callback:
             progress_callback(f"Reading file: {self.input_path}")
@@ -682,9 +686,11 @@ class UnifiedChemicalValidator:
             else:
                 df = pd.read_csv(self.input_path, encoding='utf-8', dtype=str)
         except Exception as e:
-            logger.error(f"Error reading file: {e}")
+            msg = f"Error reading file: {e}"
+            self.fatal_error = msg
+            logger.error(msg)
             if progress_callback:
-                progress_callback(f"Error reading file: {e}")
+                progress_callback(msg)
             return False
 
         logger.info(f"Rows: {len(df)}")
@@ -692,9 +698,12 @@ class UnifiedChemicalValidator:
         try:
             name_col, cas_col, smiles_col = self.identify_columns(df)
         except ValueError as e:
-            logger.error(f"{e}")
+            found = ", ".join(str(c) for c in df.columns)
+            msg = f"{e}. Found columns: {found}"
+            self.fatal_error = msg
+            logger.error(msg)
             if progress_callback:
-                progress_callback(f"Error: {e}")
+                progress_callback(f"Error: {msg}")
             return False
 
         # Quick PubChem connectivity preflight. This helps distinguish
@@ -719,6 +728,14 @@ class UnifiedChemicalValidator:
                 df[name_col].isna() & df[cas_col].isna() & df[smiles_col].isna()
             )
         df = df[mask_keep]
+
+        if len(df) == 0:
+            msg = "Input file contains no data rows to validate."
+            self.fatal_error = msg
+            logger.error(msg)
+            if progress_callback:
+                progress_callback(msg)
+            return False
 
         logger.info(f"Processing {len(df)} chemicals...")
 

@@ -214,6 +214,7 @@ def test_gui_run_validation_success():
     app = _make_gui()
     mock_validator = MagicMock()
     mock_validator.validate_csv.return_value = True
+    mock_validator.fatal_error = None
 
     with patch("src.gui.UnifiedChemicalValidator", return_value=mock_validator), \
          patch("src.gui.messagebox"):
@@ -230,6 +231,7 @@ def test_gui_run_validation_failure():
     app = _make_gui()
     mock_validator = MagicMock()
     mock_validator.validate_csv.return_value = False
+    mock_validator.fatal_error = None
 
     with patch("src.gui.UnifiedChemicalValidator", return_value=mock_validator), \
          patch("src.gui.messagebox"):
@@ -248,6 +250,22 @@ def test_gui_run_validation_exception():
         app.run_validation("input.csv", None, False)
 
     assert app.is_validating is False
+
+
+@pytest.mark.fast
+def test_gui_run_validation_fatal_error_skips_save():
+    """Fatal input errors show error dialog and do not write output."""
+    app = _make_gui()
+    mock_validator = MagicMock()
+    mock_validator.validate_csv.return_value = False
+    mock_validator.fatal_error = "Could not read file"
+
+    with patch("src.gui.UnifiedChemicalValidator", return_value=mock_validator), \
+         patch("src.gui.messagebox.showerror") as mock_showerror:
+        app.run_validation("input.csv", None, False)
+
+    mock_showerror.assert_called_once()
+    mock_validator.save_results.assert_not_called()
 
 
 @pytest.mark.fast

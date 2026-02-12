@@ -222,6 +222,12 @@ class ValidatorGUI:
             try:
                 success = validator.validate_csv(progress_callback=self.update_status)
 
+                if validator.fatal_error:
+                    self.log(f"\nInput file problem: {validator.fatal_error}")
+                    self.update_status("Error")
+                    self.root.after(0, lambda: messagebox.showerror("Input file problem", validator.fatal_error))
+                    return
+
                 # Always save results — rejected rows still need to appear in output
                 validator.save_results()
 

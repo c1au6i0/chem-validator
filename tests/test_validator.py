@@ -355,6 +355,8 @@ def test_validate_csv_missing_columns(tmp_path):
     v = UnifiedChemicalValidator(str(csv_file))
     result = v.validate_csv()
     assert result is False
+    assert v.fatal_error is not None
+    assert "Could not find Name or CAS columns" in v.fatal_error
 
 
 @pytest.mark.fast
@@ -617,3 +619,5 @@ def test_validate_csv_read_error(tmp_path):
     v = UnifiedChemicalValidator(str(tmp_path / "nonexistent.csv"))
     result = v.validate_csv()
     assert result is False
+    assert v.fatal_error is not None
+    assert "Error reading file" in v.fatal_error

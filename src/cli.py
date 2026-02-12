@@ -73,6 +73,10 @@ Output folder options:
     validator = UnifiedChemicalValidator(args.input_file, args.output_folder)
     success = validator.validate_csv()
 
+    if validator.fatal_error:
+        logger.error(f"Input file problem: {validator.fatal_error}")
+        sys.exit(2)
+
     # Always save results — rejected rows still need to appear in output
     validator.save_results()
 

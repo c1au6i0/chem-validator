@@ -76,6 +76,8 @@ CSV or Excel file (`.csv`, `.xlsx`, `.xls`) with columns:
 
 Column detection is case-insensitive and uses substring matching (e.g., `Chemical Name`, `CAS Number`, `SMILES` all work).
 
+If the input file is malformed (unreadable, missing required columns, or has no rows), the app will show an error and will not produce an output Excel file.
+
 ### Output
 
 Excel file named `validation_results_{input}_{timestamp}.xlsx` containing:
