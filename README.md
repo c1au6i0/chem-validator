@@ -9,6 +9,8 @@ Chemical CSV validator with PubChem integration. Validates Name, CAS, and SMILES
 
 Provides both a GUI (Tkinter) and CLI interface. Distributed as standalone executables for Windows and macOS — no Python installation required.
 
+In the GUI, see `Help -> About...` for version, license, and repo link.
+
 ## Features
 
 - **PubChem validation** — queries Name, CAS, and SMILES against PubChem and verifies all identifiers resolve to the same compound (CID)

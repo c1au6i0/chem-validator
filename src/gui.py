@@ -8,7 +8,7 @@ from tkinter import ttk, filedialog, scrolledtext, messagebox
 
 # Local
 from src.validator import UnifiedChemicalValidator
-from src.app_meta import APP_NAME, COPYRIGHT, LICENSE, REPO_URL, __version__
+from src.app_meta import APP_NAME, LICENSE, REPO_URL, __version__
 
 
 class ValidatorGUI:
@@ -111,7 +111,6 @@ class ValidatorGUI:
     def show_about(self) -> None:
         about_text = (
             f"{APP_NAME} v{__version__}\n"
-            f"{COPYRIGHT}\n"
             f"License: {LICENSE}\n"
             f"Repo: {REPO_URL}"
         )

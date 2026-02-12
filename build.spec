@@ -8,7 +8,7 @@ a = Analysis(
     ['src/main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('LICENSE', '.')],
     hiddenimports=['pandas', 'pubchempy', 'openpyxl', 'tkinter', 'certifi', 'truststore'],
     hookspath=[],
     hooksconfig={},

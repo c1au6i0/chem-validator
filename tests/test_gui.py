@@ -273,6 +273,10 @@ def test_gui_start_validation_custom_with_path():
 def test_gui_about_dialog():
     """About dialog shows app metadata."""
     app = _make_gui()
-    with patch("src.gui.messagebox") as mock_mb:
+    with patch("src.gui.messagebox.showinfo") as mock_show:
         app.show_about()
-        mock_mb.showinfo.assert_called_once()
+        mock_show.assert_called_once()
+        _title, msg = mock_show.call_args.args
+        assert "License: MIT" in msg
+        assert "https://github.com/c1au6i0/chem-validator" in msg
+        assert "Copyright" not in msg
