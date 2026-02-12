@@ -191,7 +191,7 @@ def test_gui_start_validation_auto_mode():
         app.start_validation_thread()
         mock_thread.assert_called_once()
         args = mock_thread.call_args
-        assert args.kwargs["args"] == ("somefile.csv", "auto", False)
+        assert args.kwargs["args"] == ("somefile.csv", "auto", False, "both")
 
 
 @pytest.mark.fast
@@ -205,7 +205,7 @@ def test_gui_start_validation_current_mode(tmp_path):
         app.start_validation_thread()
         mock_thread.assert_called_once()
         args = mock_thread.call_args
-        assert args.kwargs["args"] == (str(tmp_path / "somefile.csv"), str(tmp_path), False)
+        assert args.kwargs["args"] == (str(tmp_path / "somefile.csv"), str(tmp_path), False, "both")
 
 
 @pytest.mark.fast
@@ -218,10 +218,10 @@ def test_gui_run_validation_success():
 
     with patch("src.gui.UnifiedChemicalValidator", return_value=mock_validator), \
          patch("src.gui.messagebox"):
-        app.run_validation("input.csv", None, False)
+        app.run_validation("input.csv", None, False, "both")
 
     mock_validator.validate_csv.assert_called_once()
-    mock_validator.save_results.assert_called_once()
+    mock_validator.save_results.assert_called_once_with(output_format="both")
     assert app.is_validating is False
 
 
@@ -235,7 +235,7 @@ def test_gui_run_validation_failure():
 
     with patch("src.gui.UnifiedChemicalValidator", return_value=mock_validator), \
          patch("src.gui.messagebox"):
-        app.run_validation("input.csv", None, False)
+        app.run_validation("input.csv", None, False, "both")
 
     assert app.is_validating is False
 
@@ -247,7 +247,7 @@ def test_gui_run_validation_exception():
 
     with patch("src.gui.UnifiedChemicalValidator", side_effect=Exception("boom")), \
          patch("src.gui.messagebox"):
-        app.run_validation("input.csv", None, False)
+        app.run_validation("input.csv", None, False, "both")
 
     assert app.is_validating is False
 
@@ -262,7 +262,7 @@ def test_gui_run_validation_fatal_error_skips_save():
 
     with patch("src.gui.UnifiedChemicalValidator", return_value=mock_validator), \
          patch("src.gui.messagebox.showerror") as mock_showerror:
-        app.run_validation("input.csv", None, False)
+        app.run_validation("input.csv", None, False, "both")
 
     mock_showerror.assert_called_once()
     mock_validator.save_results.assert_not_called()
@@ -293,7 +293,7 @@ def test_gui_start_validation_custom_with_path():
         app.start_validation_thread()
         mock_thread.assert_called_once()
         args = mock_thread.call_args
-        assert args.kwargs["args"] == ("somefile.csv", "/my/custom/path", False)
+        assert args.kwargs["args"] == ("somefile.csv", "/my/custom/path", False, "both")
 
 
 @pytest.mark.fast

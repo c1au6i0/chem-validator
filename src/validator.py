@@ -771,36 +771,47 @@ class UnifiedChemicalValidator:
 
         return len(rejected) == 0
 
-    def save_results(self) -> bool:
+    def save_results(self, output_format: str = "both") -> bool:
         """
-        Save validation results to Excel with auto-column-width and filters.
+        Save validation results to Excel/CSV.
 
         Output is an .xlsx file with auto-filter enabled on all columns
         and column widths adjusted to fit content (capped at 50 chars).
+        CSV output uses UTF-8 with BOM (Excel-friendly) and CRLF newlines.
 
         Returns:
-            True if file was saved successfully, False on error
+            True if requested file(s) were saved successfully, False on error
         """
+        output_format = (output_format or "both").strip().lower()
+        if output_format not in {"xlsx", "csv", "both"}:
+            logger.warning("Unknown output_format=%r; defaulting to 'both'", output_format)
+            output_format = "both"
+
         input_file = Path(self.input_path)
         input_stem = input_file.stem.lower().replace(' ', '_')
         input_stem = re.sub(r'_\d{8}_\d{6}$', '', input_stem)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"validation_results_{input_stem}_{timestamp}.xlsx"
+        base_name = f"validation_results_{input_stem}_{timestamp}"
+        filename_xlsx = f"{base_name}.xlsx"
+        filename_csv = f"{base_name}.csv"
 
         if self.output_folder is None:
             output_dir = Path.cwd()
-            output_file = output_dir / filename
+            output_file_xlsx = output_dir / filename_xlsx
+            output_file_csv = output_dir / filename_csv
             logger.info(f"Output location: Current directory")
         elif self.output_folder == 'auto':
             output_dir = Path("output") / input_stem
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_file = output_dir / filename
+            output_file_xlsx = output_dir / filename_xlsx
+            output_file_csv = output_dir / filename_csv
             logger.info(f"Output location: Auto subfolder (output/{input_stem}/)")
         else:
             output_dir = Path(self.output_folder)
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_file = output_dir / filename
+            output_file_xlsx = output_dir / filename_xlsx
+            output_file_csv = output_dir / filename_csv
             logger.info(f"Output location: Custom folder ({self.output_folder})")
 
         import pandas as pd
@@ -845,33 +856,52 @@ class UnifiedChemicalValidator:
             if col in all_df.columns:
                 all_df[col] = pd.to_numeric(all_df[col], errors='coerce').astype('Int64')
 
-        # Write to Excel with formatting
-        try:
-            from openpyxl.utils import get_column_letter
+        ok = True
 
-            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                all_df.to_excel(writer, index=False, sheet_name='Validation Results')
+        if output_format in {"csv", "both"}:
+            try:
+                import csv as _csv
 
-                workbook = writer.book
-                worksheet = writer.sheets['Validation Results']
+                all_df.to_csv(
+                    output_file_csv,
+                    index=False,
+                    encoding="utf-8-sig",
+                    lineterminator="\r\n",
+                    quoting=_csv.QUOTE_MINIMAL,
+                )
+                logger.info(f"Results saved to: {output_file_csv}")
+            except Exception as e:
+                logger.error(f"Failed to save results (csv): {e}")
+                ok = False
 
-                # Auto-filter
-                worksheet.auto_filter.ref = worksheet.dimensions
+        if output_format in {"xlsx", "both"}:
+            # Write to Excel with formatting
+            try:
+                from openpyxl.utils import get_column_letter
 
-                # Auto-width columns
-                for i, col in enumerate(all_df.columns):
-                    col_max = all_df[col].astype(str).str.len().max()
-                    # col_max is NaN when the column is empty
-                    if col_max != col_max:
-                        col_max = 0
-                    max_len = int(max(col_max, len(col))) + 2
-                    # Cap width at 50 chars to avoid super wide columns
-                    width = min(max_len, 50)
-                    col_letter = get_column_letter(i + 1)
-                    worksheet.column_dimensions[col_letter].width = width
+                with pd.ExcelWriter(output_file_xlsx, engine='openpyxl') as writer:
+                    all_df.to_excel(writer, index=False, sheet_name='Validation Results')
 
-            logger.info(f"Results saved to: {output_file}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save results: {e}")
-            return False
+                    worksheet = writer.sheets['Validation Results']
+
+                    # Auto-filter
+                    worksheet.auto_filter.ref = worksheet.dimensions
+
+                    # Auto-width columns
+                    for i, col in enumerate(all_df.columns):
+                        col_max = all_df[col].astype(str).str.len().max()
+                        # col_max is NaN when the column is empty
+                        if col_max != col_max:
+                            col_max = 0
+                        max_len = int(max(col_max, len(col))) + 2
+                        # Cap width at 50 chars to avoid super wide columns
+                        width = min(max_len, 50)
+                        col_letter = get_column_letter(i + 1)
+                        worksheet.column_dimensions[col_letter].width = width
+
+                logger.info(f"Results saved to: {output_file_xlsx}")
+            except Exception as e:
+                logger.error(f"Failed to save results (xlsx): {e}")
+                ok = False
+
+        return ok

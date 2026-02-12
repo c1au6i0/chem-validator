@@ -373,7 +373,9 @@ def test_save_results_creates_xlsx(tmp_path, mocker):
 
     assert success is True
     xlsx_files = list(tmp_path.glob("validation_results_*.xlsx"))
+    csv_files = list(tmp_path.glob("validation_results_*.csv"))
     assert len(xlsx_files) == 1
+    assert len(csv_files) == 1
 
     # Verify the file can be read back
     result_df = pd.read_excel(xlsx_files[0])
@@ -400,7 +402,9 @@ def test_save_results_auto_folder(tmp_path, mocker, monkeypatch):
     auto_dir = tmp_path / "output" / "my_chemicals"
     assert auto_dir.exists()
     xlsx_files = list(auto_dir.glob("*.xlsx"))
+    csv_files = list(auto_dir.glob("*.csv"))
     assert len(xlsx_files) == 1
+    assert len(csv_files) == 1
 
 
 # ── PubChem Query Tests ─────────────────────────────────────────────────
@@ -590,7 +594,28 @@ def test_save_results_cwd(tmp_path, mocker, monkeypatch):
 
     assert success is True
     xlsx_files = list(tmp_path.glob("validation_results_*.xlsx"))
+    csv_files = list(tmp_path.glob("validation_results_*.csv"))
     assert len(xlsx_files) == 1
+    assert len(csv_files) == 1
+
+
+@pytest.mark.fast
+def test_save_results_csv_only(tmp_path, mocker, monkeypatch):
+    """save_results can produce CSV only."""
+    csv_file = tmp_path / "input.csv"
+    csv_file.write_text("Name,CAS,SMILES\nAcetone,67-64-1,CC(C)=O\n")
+    monkeypatch.chdir(tmp_path)
+
+    v = UnifiedChemicalValidator(str(csv_file), output_folder=None)
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    v.validate_csv()
+    success = v.save_results(output_format="csv")
+
+    assert success is True
+    xlsx_files = list(tmp_path.glob("validation_results_*.xlsx"))
+    csv_files = list(tmp_path.glob("validation_results_*.csv"))
+    assert len(xlsx_files) == 0
+    assert len(csv_files) == 1
 
 
 # ── validate_csv with progress_callback ─────────────────────────────────

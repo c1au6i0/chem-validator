@@ -29,7 +29,7 @@ def test_cli_main_success(tmp_path, monkeypatch):
         assert exc_info.value.code == 0
 
     mock_validator.validate_csv.assert_called_once()
-    mock_validator.save_results.assert_called_once()
+    mock_validator.save_results.assert_called_once_with(output_format="both")
 
 
 @pytest.mark.fast
@@ -48,7 +48,7 @@ def test_cli_main_failure(tmp_path, monkeypatch):
         with pytest.raises(SystemExit) as exc_info:
             cli.main()
         assert exc_info.value.code == 1
-
+    mock_validator.save_results.assert_called_once_with(output_format="both")
 
 @pytest.mark.fast
 def test_cli_main_file_not_found(tmp_path, monkeypatch):

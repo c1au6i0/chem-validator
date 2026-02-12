@@ -22,7 +22,7 @@ def main():
     Parse CLI arguments and run the validation workflow.
 
     Validates a CSV or Excel file of chemical identifiers against PubChem,
-    then saves results to an Excel file regardless of validation outcome.
+    then saves results to CSV/Excel regardless of validation outcome.
     """
     parser = argparse.ArgumentParser(
         description='Unified Chemical Validator - handles both Name+CAS and Name+CAS+SMILES inputs',
@@ -36,6 +36,11 @@ Output folder options:
   (no flag)              Save to current directory
   --output-folder        Auto subfolder: output/{input_name}/
   --output-folder PATH   Save to custom folder PATH
+
+Output format options:
+  --output-format xlsx   Save only Excel (.xlsx)
+  --output-format csv    Save only CSV (.csv)
+  --output-format both   Save both (.xlsx + .csv)
         """
     )
     parser.add_argument('input_file', help='Input file path (CSV or Excel)')
@@ -52,6 +57,13 @@ Output folder options:
         '--debug',
         action='store_true',
         help='Enable debug logging (useful for PubChem/network issues)'
+    )
+
+    parser.add_argument(
+        '--output-format',
+        choices=['xlsx', 'csv', 'both'],
+        default='both',
+        help='Output format for results (default: both)'
     )
 
     args = parser.parse_args()
@@ -78,7 +90,7 @@ Output folder options:
         sys.exit(2)
 
     # Always save results — rejected rows still need to appear in output
-    validator.save_results()
+    validator.save_results(output_format=args.output_format)
 
     if success:
         logger.info("Validation complete — all chemicals passed.")

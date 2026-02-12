@@ -36,6 +36,7 @@ class ValidatorGUI:
         self.output_mode = tk.StringVar(value="current")  # current, auto, custom
         self.custom_output_path = tk.StringVar()
         self.verbose_logging = tk.BooleanVar(value=False)
+        self.output_format = tk.StringVar(value="both")
         self.is_validating = False
 
         self.setup_ui()
@@ -90,6 +91,15 @@ class ValidatorGUI:
             action_frame,
             text="Verbose logging",
             variable=self.verbose_logging,
+        ).pack(side=tk.LEFT)
+
+        ttk.Label(action_frame, text="Output:").pack(side=tk.LEFT, padx=(15, 5))
+        ttk.Combobox(
+            action_frame,
+            textvariable=self.output_format,
+            values=("both", "xlsx", "csv"),
+            state="readonly",
+            width=8,
         ).pack(side=tk.LEFT)
 
         self.run_btn = ttk.Button(action_frame, text="Start Validation", command=self.start_validation_thread)
@@ -182,6 +192,7 @@ class ValidatorGUI:
                 return
 
         verbose = bool(self.verbose_logging.get())
+        output_format = str(self.output_format.get() or "both").strip().lower()
 
         self.is_validating = True
         self.run_btn.config(state='disabled')
@@ -189,9 +200,13 @@ class ValidatorGUI:
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state='disabled')
 
-        threading.Thread(target=self.run_validation, args=(input_path, output_folder, verbose), daemon=True).start()
+        threading.Thread(
+            target=self.run_validation,
+            args=(input_path, output_folder, verbose, output_format),
+            daemon=True,
+        ).start()
 
-    def run_validation(self, input_path: str, output_folder: str | None, verbose: bool):
+    def run_validation(self, input_path: str, output_folder: str | None, verbose: bool, output_format: str):
         """Run validation in background thread with GUI logging."""
         self.log("Starting validation...")
         self.update_status("Validating...")
@@ -229,7 +244,7 @@ class ValidatorGUI:
                     return
 
                 # Always save results — rejected rows still need to appear in output
-                validator.save_results()
+                validator.save_results(output_format=output_format)
 
                 if success:
                     self.log("\nValidation complete — all chemicals passed.")

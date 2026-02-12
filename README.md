@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/c1au6i0/chem-validator)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
 
-Chemical CSV validator with PubChem integration. Validates Name, CAS, and SMILES identifiers against the PubChem database, detects duplicates and stereoisomers, and exports results to Excel.
+Chemical CSV validator with PubChem integration. Validates Name, CAS, and SMILES identifiers against the PubChem database, detects duplicates and stereoisomers, and exports results to Excel and CSV.
 
 Provides both a GUI (Tkinter) and CLI interface. Distributed as standalone executables for Windows and macOS — no Python installation required.
 
@@ -20,7 +20,7 @@ In the GUI, see `Help -> About...` for version, license, and repo link.
 - **Duplicate detection:**
   - **Exact duplicates** — full InChIKey match
   - **Stereoisomer duplicates** — first 14 characters of InChIKey (canonical layer) match
-- **Excel output** — results saved as `.xlsx` with auto-filters and auto-width columns
+- **Excel + CSV output** — results saved as `.xlsx` (auto-filters/column widths) and `.csv`
 - **Rate limiting** — 0.2s delay between PubChem API calls to respect usage limits
 
 ## Installation
@@ -63,6 +63,11 @@ pixi run cli input.csv --output-folder
 
 # Save to a custom folder
 pixi run cli input.csv --output-folder /path/to/output
+
+# Choose output format (default: both)
+pixi run cli input.csv --output-format csv
+pixi run cli input.csv --output-format xlsx
+pixi run cli input.csv --output-format both
 ```
 
 ### Input Format
@@ -76,11 +81,11 @@ CSV or Excel file (`.csv`, `.xlsx`, `.xls`) with columns:
 
 Column detection is case-insensitive and uses substring matching (e.g., `Chemical Name`, `CAS Number`, `SMILES` all work).
 
-If the input file is malformed (unreadable, missing required columns, or has no rows), the app will show an error and will not produce an output Excel file.
+If the input file is malformed (unreadable, missing required columns, or has no rows), the app will show an error and will not produce an output file.
 
 ### Output
 
-Excel file named `validation_results_{input}_{timestamp}.xlsx` containing:
+Results file(s) named `validation_results_{input}_{timestamp}.xlsx` and/or `validation_results_{input}_{timestamp}.csv` containing:
 
 | Column | Description |
 |--------|-------------|
