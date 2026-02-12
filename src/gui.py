@@ -5,6 +5,7 @@ import logging
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
+from pathlib import Path
 
 # Local
 from src.validator import UnifiedChemicalValidator
@@ -34,6 +35,7 @@ class ValidatorGUI:
         self.file_path = tk.StringVar()
         self.output_mode = tk.StringVar(value="current")  # current, auto, custom
         self.custom_output_path = tk.StringVar()
+        self.verbose_logging = tk.BooleanVar(value=False)
         self.is_validating = False
 
         self.setup_ui()
@@ -57,7 +59,7 @@ class ValidatorGUI:
         output_frame.pack(fill=tk.X, pady=(0, 10))
 
         # Radio buttons
-        ttk.Radiobutton(output_frame, text="Current Directory (same as input)",
+        ttk.Radiobutton(output_frame, text="Same folder as input file",
                         variable=self.output_mode, value="current",
                         command=self.toggle_output_entry).pack(anchor=tk.W)
 
@@ -83,6 +85,12 @@ class ValidatorGUI:
         # --- Actions Section ---
         action_frame = ttk.Frame(main_frame)
         action_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Checkbutton(
+            action_frame,
+            text="Verbose logging",
+            variable=self.verbose_logging,
+        ).pack(side=tk.LEFT)
 
         self.run_btn = ttk.Button(action_frame, text="Start Validation", command=self.start_validation_thread)
         self.run_btn.pack(side=tk.RIGHT)
@@ -163,6 +171,8 @@ class ValidatorGUI:
         # Prepare output folder
         mode = self.output_mode.get()
         output_folder = None
+        if mode == 'current':
+            output_folder = str(Path(input_path).expanduser().resolve().parent)
         if mode == 'auto':
             output_folder = 'auto'
         elif mode == 'custom':
@@ -171,15 +181,17 @@ class ValidatorGUI:
                 messagebox.showerror("Error", "Please select a custom output folder.")
                 return
 
+        verbose = bool(self.verbose_logging.get())
+
         self.is_validating = True
         self.run_btn.config(state='disabled')
         self.log_text.config(state='normal')
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state='disabled')
 
-        threading.Thread(target=self.run_validation, args=(input_path, output_folder), daemon=True).start()
+        threading.Thread(target=self.run_validation, args=(input_path, output_folder, verbose), daemon=True).start()
 
-    def run_validation(self, input_path: str, output_folder: str | None):
+    def run_validation(self, input_path: str, output_folder: str | None, verbose: bool):
         """Run validation in background thread with GUI logging."""
         self.log("Starting validation...")
         self.update_status("Validating...")
@@ -203,8 +215,9 @@ class ValidatorGUI:
             # Attach to root logger temporarily
             root_logger = logging.getLogger()
             old_level = root_logger.level
-            root_logger.setLevel(logging.INFO)
+            root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
             root_logger.addHandler(gui_handler)
+            gui_handler.setLevel(logging.DEBUG if verbose else logging.INFO)
 
             try:
                 success = validator.validate_csv(progress_callback=self.update_status)

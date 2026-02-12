@@ -42,6 +42,10 @@ pixi run install-hooks
 pixi run gui
 ```
 
+GUI notes:
+- Output "Same folder as input file" saves next to the selected input.
+- Enable "Verbose logging" to include per-query PubChem details in the log.
+
 Or double-click the built executable — launches the GUI by default when no arguments are provided.
 
 #### Startup Time Note

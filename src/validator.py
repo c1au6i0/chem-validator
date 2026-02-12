@@ -247,6 +247,8 @@ class UnifiedChemicalValidator:
         if not identifier:
             return None, None
 
+        logger.debug("PubChem query start: namespace=%s identifier=%r", namespace, identifier)
+
         _ensure_ca_bundle_configured()
 
         import pubchempy as pcp
@@ -265,7 +267,15 @@ class UnifiedChemicalValidator:
                     compound = compounds[0]
                     cid = compound.cid
                     inchikey = compound.inchikey if hasattr(compound, 'inchikey') else None
+                    logger.debug(
+                        "PubChem query resolved: namespace=%s identifier=%r cid=%r inchikey=%r",
+                        namespace,
+                        identifier,
+                        cid,
+                        inchikey,
+                    )
                     return cid, inchikey
+                logger.debug("PubChem query no results: namespace=%s identifier=%r", namespace, identifier)
                 return None, None  # found nothing – no point retrying
             except Exception as e:
                 self._last_pubchem_error = f"{type(e).__name__}: {e}"
@@ -303,6 +313,8 @@ class UnifiedChemicalValidator:
         if not cid:
             return None
 
+        logger.debug("PubChem SMILES fetch start: cid=%r", cid)
+
         _ensure_ca_bundle_configured()
 
         import pubchempy as pcp
@@ -315,6 +327,7 @@ class UnifiedChemicalValidator:
                 time.sleep(delay)
                 compound = pcp.Compound.from_cid(cid)
                 smiles = compound.smiles if hasattr(compound, 'smiles') else None
+                logger.debug("PubChem SMILES fetch resolved: cid=%r smiles=%r", cid, smiles)
                 return smiles
             except Exception as e:
                 self._last_pubchem_error = f"{type(e).__name__}: {e}"
