@@ -36,11 +36,15 @@ def _ensure_ca_bundle_configured() -> None:
     This helps when running in PyInstaller bundles where the default
     CA discovery may differ from a system Python install.
 
+    Mode can be configured via CHEM_VALIDATOR_TLS_MODE:
+
+    - system (default): use OS trust store via truststore when available
+    - public: use certifi CA bundle (public roots only)
+    - custom: use CHEM_VALIDATOR_CA_BUNDLE (PEM file path)
+
     Priority:
     1) Respect existing SSL_CERT_FILE/REQUESTS_CA_BUNDLE
-    2) Use CHEM_VALIDATOR_CA_BUNDLE if provided (corporate proxy/VPN root CA)
-    3) Use system trust store via truststore (if available)
-    4) Fall back to certifi bundle (if available)
+    2) Apply CHEM_VALIDATOR_TLS_MODE behavior
     """
     global _TLS_CONFIGURED
     if _TLS_CONFIGURED:
@@ -50,12 +54,40 @@ def _ensure_ca_bundle_configured() -> None:
     if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
         return
 
-    ca_bundle = os.environ.get("CHEM_VALIDATOR_CA_BUNDLE")
-    if ca_bundle:
-        os.environ.setdefault("SSL_CERT_FILE", ca_bundle)
-        os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_bundle)
+    mode = os.environ.get("CHEM_VALIDATOR_TLS_MODE", "system").strip().lower()
+    if mode not in {"system", "public", "custom"}:
+        logger.warning(
+            "Unknown CHEM_VALIDATOR_TLS_MODE=%r; defaulting to 'system'",
+            mode,
+        )
+        mode = "system"
+
+    logger.info("TLS mode: %s", mode)
+
+    if mode == "custom":
+        ca_bundle = os.environ.get("CHEM_VALIDATOR_CA_BUNDLE")
+        if not ca_bundle:
+            logger.warning(
+                "CHEM_VALIDATOR_TLS_MODE=custom requires CHEM_VALIDATOR_CA_BUNDLE. Falling back to TLS mode: system"
+            )
+            mode = "system"
+        else:
+            os.environ.setdefault("SSL_CERT_FILE", ca_bundle)
+            os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_bundle)
+            return
+
+    if mode == "public":
+        try:
+            import certifi  # type: ignore
+        except Exception:
+            return
+
+        cafile = certifi.where()
+        os.environ.setdefault("SSL_CERT_FILE", cafile)
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", cafile)
         return
 
+    # system
     try:
         import truststore  # type: ignore
 
@@ -64,6 +96,7 @@ def _ensure_ca_bundle_configured() -> None:
     except Exception:
         pass
 
+    # Fallback when truststore isn't available.
     try:
         import certifi  # type: ignore
     except Exception:

@@ -177,7 +177,17 @@ If macOS says the app is "damaged" after downloading, this is usually Gatekeeper
 xattr -dr com.apple.quarantine "/path/to/chem-validator.app"
 ```
 
-If PubChem lookups fail with `CERTIFICATE_VERIFY_FAILED` and you are behind a corporate proxy/SSL inspection, set `CHEM_VALIDATOR_CA_BUNDLE` to a PEM file containing your organization's root CA certificate.
+### VPN / TLS Notes
+
+If PubChem lookups fail with `CERTIFICATE_VERIFY_FAILED`, you may be behind a VPN or corporate proxy doing SSL inspection.
+
+This app supports explicit TLS trust configuration via environment variables:
+
+- `CHEM_VALIDATOR_TLS_MODE=system` (default): use OS trust store (works when your VPN installs its root CA into the OS trust store)
+- `CHEM_VALIDATOR_TLS_MODE=public`: trust public roots only (uses `certifi`)
+- `CHEM_VALIDATOR_TLS_MODE=custom`: trust a custom CA bundle (set `CHEM_VALIDATOR_CA_BUNDLE=/path/to/root-ca.pem`)
+
+If you are behind SSL inspection and need PubChem to work, `system` or `custom` is usually required.
 
 For GitHub Releases on Windows, a `.msi` installer may also be provided (e.g. `chem-validator-windows.msi`).
 
