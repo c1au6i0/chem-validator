@@ -179,7 +179,7 @@ class ValidatorGUI:
 
         threading.Thread(target=self.run_validation, args=(input_path, output_folder), daemon=True).start()
 
-    def run_validation(self, input_path: str, output_folder: str):
+    def run_validation(self, input_path: str, output_folder: str | None):
         """Run validation in background thread with GUI logging."""
         self.log("Starting validation...")
         self.update_status("Validating...")
@@ -198,9 +198,12 @@ class ValidatorGUI:
 
             gui_handler = GuiHandler(self.log)
             gui_handler.setFormatter(logging.Formatter('%(message)s'))
+            gui_handler.setLevel(logging.INFO)
 
             # Attach to root logger temporarily
             root_logger = logging.getLogger()
+            old_level = root_logger.level
+            root_logger.setLevel(logging.INFO)
             root_logger.addHandler(gui_handler)
 
             try:
@@ -219,6 +222,7 @@ class ValidatorGUI:
                     self.root.after(0, lambda: messagebox.showwarning("Done", "Validation complete. Some chemicals were rejected. See output file."))
             finally:
                 root_logger.removeHandler(gui_handler)
+                root_logger.setLevel(old_level)
 
         except Exception as e:
             self.log(f"Error: {str(e)}")
