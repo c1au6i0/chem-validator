@@ -50,7 +50,7 @@ Or double-click the built executable — launches the GUI by default when no arg
 
 #### Startup Time Note
 
-On Windows and Linux, the standalone executable may take a few seconds to start (especially on first launch) because PyInstaller `onefile` builds unpack bundled dependencies to a temp directory. On macOS, the `.app` bundle uses `onedir` mode so startup is faster. The first run on macOS may also include additional OS verification (Gatekeeper).
+On Windows and Linux, the standalone executable may take a few seconds to start because the build uses onefile-style packaging (bundled dependencies are extracted at runtime). On macOS, the `.app` bundle is a directory-based app bundle, so startup is typically faster. The first run on macOS may also include additional OS verification (Gatekeeper).
 
 ### CLI
 
@@ -170,7 +170,7 @@ Pre-commit hooks automatically run fast tests and verify 80% coverage before eac
 pixi run build
 ```
 
-Packaging is done with PyInstaller via `build.spec`.
+Packaging is done with Nuitka via `scripts/nuitka_build.py`.
 
 Produces a standalone executable in `dist/`:
 - **Linux:** `dist/chem-validator`
@@ -209,7 +209,7 @@ For GitHub Releases on Windows, a `.msi` installer may also be provided (e.g. `c
 | pytest | Test framework |
 | pytest-cov | Coverage reporting |
 | pytest-mock | Test mocking utilities |
-| pyinstaller | Standalone executable builds |
+| nuitka | Standalone executable builds |
 | pre-commit | Git hook management |
 
 ## License

@@ -31,6 +31,10 @@ jobs:
       - name: Install pixi
         uses: prefix-dev/setup-pixi@v0.8.8
 
+      - name: Install patchelf (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y patchelf
+
       - name: Run fast tests
         run: pixi run test-fast
 
