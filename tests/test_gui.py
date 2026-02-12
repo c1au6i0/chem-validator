@@ -304,6 +304,6 @@ def test_gui_about_dialog():
         app.show_about()
         mock_show.assert_called_once()
         _title, msg = mock_show.call_args.args
-        assert "License: MIT" in msg
+        assert "License: GPL-3.0-or-later" in msg
         assert "https://github.com/c1au6i0/chem-validator" in msg
         assert "Copyright" not in msg

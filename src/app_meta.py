@@ -5,5 +5,5 @@
 APP_NAME = "Chem Validator"
 __version__ = "0.1.11"
 
-LICENSE = "MIT"
+LICENSE = "GPL-3.0-or-later"
 REPO_URL = "https://github.com/c1au6i0/chem-validator"
