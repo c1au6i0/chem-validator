@@ -1,10 +1,14 @@
-[project]
+[workspace]
 name = "chem-validator"
 version = "0.1.12"
 description = "Chemical CSV Validator with PubChem Integration"
 authors = ["heverz"]
 channels = ["conda-forge"]
 platforms = ["win-64", "osx-64", "linux-64"]
+license = "GPL-3.0-or-later"
+license-file = "LICENSE"
+readme = "README.md"
+repository = "https://github.com/c1au6i0/chem-validator"
 
 [dependencies]
 python = "3.13.*"
