@@ -262,14 +262,15 @@ class ValidatorGUI:
 
             gui_handler = GuiHandler(self.log)
             gui_handler.setFormatter(logging.Formatter('%(message)s'))
-            gui_handler.setLevel(logging.INFO)
 
-            # Attach to root logger temporarily
-            root_logger = logging.getLogger()
-            old_level = root_logger.level
-            root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
-            root_logger.addHandler(gui_handler)
-            gui_handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+            level = logging.DEBUG if verbose else logging.INFO
+            gui_handler.setLevel(level)
+
+            # Attach directly to the validator logger so the level is authoritative
+            val_logger = logging.getLogger("src.validator")
+            old_level = val_logger.level
+            val_logger.setLevel(level)
+            val_logger.addHandler(gui_handler)
 
             try:
                 success = validator.validate_csv(progress_callback=self.update_status)
@@ -292,8 +293,8 @@ class ValidatorGUI:
                     self.update_status("Done (with rejections)")
                     self.root.after(0, lambda: messagebox.showwarning("Done", "Validation complete. Some chemicals were rejected. See output file."))
             finally:
-                root_logger.removeHandler(gui_handler)
-                root_logger.setLevel(old_level)
+                val_logger.removeHandler(gui_handler)
+                val_logger.setLevel(old_level)
 
         except Exception as e:
             self.log(f"Error: {str(e)}")
