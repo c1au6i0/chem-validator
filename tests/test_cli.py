@@ -75,7 +75,7 @@ def test_cli_main_output_folder_auto(tmp_path, monkeypatch):
     with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator) as mock_cls:
         with pytest.raises(SystemExit):
             cli.main()
-        mock_cls.assert_called_once_with(str(csv_file), "auto")
+        mock_cls.assert_called_once_with(str(csv_file), "auto", sheet=None)
 
 
 @pytest.mark.fast
@@ -94,7 +94,7 @@ def test_cli_main_output_folder_custom(tmp_path, monkeypatch):
     with patch("src.cli.UnifiedChemicalValidator", return_value=mock_validator) as mock_cls:
         with pytest.raises(SystemExit):
             cli.main()
-        mock_cls.assert_called_once_with(str(csv_file), custom)
+        mock_cls.assert_called_once_with(str(csv_file), custom, sheet=None)
 
 
 @pytest.mark.fast

@@ -191,7 +191,7 @@ def test_gui_start_validation_auto_mode():
         app.start_validation_thread()
         mock_thread.assert_called_once()
         args = mock_thread.call_args
-        assert args.kwargs["args"] == ("somefile.csv", "auto", False, "both")
+        assert args.kwargs["args"] == ("somefile.csv", "auto", False, "both", None)
 
 
 @pytest.mark.fast
@@ -205,7 +205,7 @@ def test_gui_start_validation_current_mode(tmp_path):
         app.start_validation_thread()
         mock_thread.assert_called_once()
         args = mock_thread.call_args
-        assert args.kwargs["args"] == (str(tmp_path / "somefile.csv"), str(tmp_path), False, "both")
+        assert args.kwargs["args"] == (str(tmp_path / "somefile.csv"), str(tmp_path), False, "both", None)
 
 
 @pytest.mark.fast
@@ -293,7 +293,7 @@ def test_gui_start_validation_custom_with_path():
         app.start_validation_thread()
         mock_thread.assert_called_once()
         args = mock_thread.call_args
-        assert args.kwargs["args"] == ("somefile.csv", "/my/custom/path", False, "both")
+        assert args.kwargs["args"] == ("somefile.csv", "/my/custom/path", False, "both", None)
 
 
 @pytest.mark.fast

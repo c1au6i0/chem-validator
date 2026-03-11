@@ -255,11 +255,11 @@ def test_validate_chemical_progress_callback(validator, mocker):
 
 @pytest.mark.fast
 def test_exact_duplicates(validator):
-    """Second chemical with same InChIKey gets rejected as exact_duplicate."""
+    """Second chemical with same inchikey_by_smiles gets rejected as exact_duplicate."""
     validator.validation_results = [
-        {"status": "validated", "validated_inchikey": "AAAAAAAAA", "validated_canonical_inchikey_14": "AAAAAAAAA12345", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
-        {"status": "validated", "validated_inchikey": "AAAAAAAAA", "validated_canonical_inchikey_14": "AAAAAAAAA12345", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A dup"},
-        {"status": "validated", "validated_inchikey": "BBBBBBBBB", "validated_canonical_inchikey_14": "BBBBBBBBB12345", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 3, "name": "B"},
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A dup"},
+        {"status": "validated", "inchikey_by_smiles": "BBBBBBBBB", "inchikey_14_by_smiles": "BBBBBBBBB1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 3, "name": "B"},
     ]
 
     validator.check_exact_duplicates()
@@ -274,10 +274,10 @@ def test_exact_duplicates(validator):
 
 @pytest.mark.fast
 def test_stereoisomer_duplicates(validator):
-    """Chemicals sharing 14-char canonical InChIKey get marked as stereo_duplicate."""
+    """Chemicals sharing inchikey_14_by_smiles get marked as stereo_duplicate."""
     validator.validation_results = [
-        {"status": "validated", "validated_inchikey": "AAAAAAAAAA-BBB-C", "validated_canonical_inchikey_14": "AAAAAAAAAA-BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
-        {"status": "validated", "validated_inchikey": "AAAAAAAAAA-BBB-D", "validated_canonical_inchikey_14": "AAAAAAAAAA-BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A-stereo"},
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAAA-BBB-C", "inchikey_14_by_smiles": "AAAAAAAAAA-BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAAA-BBB-D", "inchikey_14_by_smiles": "AAAAAAAAAA-BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A-stereo"},
     ]
 
     validator.check_stereoisomer_duplicates()
@@ -292,8 +292,8 @@ def test_stereoisomer_duplicates(validator):
 def test_no_duplicates(validator):
     """No duplicates when all InChIKeys are unique."""
     validator.validation_results = [
-        {"status": "validated", "validated_inchikey": "AAA", "validated_canonical_inchikey_14": "AAA", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
-        {"status": "validated", "validated_inchikey": "BBB", "validated_canonical_inchikey_14": "BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "B"},
+        {"status": "validated", "inchikey_by_smiles": "AAA", "inchikey_14_by_smiles": "AAA", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
+        {"status": "validated", "inchikey_by_smiles": "BBB", "inchikey_14_by_smiles": "BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "B"},
     ]
 
     validator.check_exact_duplicates()
@@ -302,6 +302,114 @@ def test_no_duplicates(validator):
     assert all(r["status"] == "validated" for r in validator.validation_results)
     assert all(r["exact_duplicate_group"] is None for r in validator.validation_results)
     assert all(r["stereo_duplicate_group"] is None for r in validator.validation_results)
+
+
+@pytest.mark.fast
+def test_exact_duplicates_rejected_row_keeps_reason(validator):
+    """Rejected row that is also an exact duplicate keeps its original rejection_reason."""
+    validator.validation_results = [
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
+        {"status": "rejected", "rejection_reason": "pubchem_discordance", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A-discordant"},
+    ]
+
+    validator.check_exact_duplicates()
+
+    assert validator.validation_results[0]["status"] == "validated"
+    assert validator.validation_results[0]["exact_duplicate_group"] == 1
+    assert validator.validation_results[1]["status"] == "rejected"
+    assert validator.validation_results[1]["rejection_reason"] == "pubchem_discordance"
+    assert validator.validation_results[1]["exact_duplicate_group"] == 1
+
+
+@pytest.mark.fast
+def test_stereo_duplicates_rejected_row_keeps_reason(validator):
+    """Rejected row that is also a stereo duplicate keeps its original rejection_reason."""
+    validator.validation_results = [
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAAA-BBB-C", "inchikey_14_by_smiles": "AAAAAAAAAA-BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
+        {"status": "rejected", "rejection_reason": "identifier_not_found", "inchikey_by_smiles": "AAAAAAAAAA-BBB-D", "inchikey_14_by_smiles": "AAAAAAAAAA-BBB", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A-stereo-rejected"},
+    ]
+
+    validator.check_stereoisomer_duplicates()
+
+    assert validator.validation_results[0]["status"] == "validated"
+    assert validator.validation_results[0]["stereo_duplicate_group"] == 1
+    assert validator.validation_results[1]["status"] == "rejected"
+    assert validator.validation_results[1]["rejection_reason"] == "identifier_not_found"
+    assert validator.validation_results[1]["stereo_duplicate_group"] == 1
+
+
+@pytest.mark.fast
+def test_exact_duplicates_validated_wins_over_rejected(validator):
+    """Validated row wins even when it appears after a rejected row in input."""
+    validator.validation_results = [
+        {"status": "rejected", "rejection_reason": "pubchem_discordance", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A-rejected"},
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "A-validated"},
+    ]
+
+    validator.check_exact_duplicates()
+
+    # validated row comes first after sort, so it keeps its status
+    assert validator.validation_results[1]["status"] == "validated"
+    assert validator.validation_results[1]["exact_duplicate_group"] == 1
+    # rejected row was already rejected; keeps reason, gets group
+    assert validator.validation_results[0]["status"] == "rejected"
+    assert validator.validation_results[0]["rejection_reason"] == "pubchem_discordance"
+    assert validator.validation_results[0]["exact_duplicate_group"] == 1
+
+
+@pytest.mark.fast
+def test_exact_duplicates_no_inchikey_excluded(validator):
+    """Rows without inchikey_by_smiles are excluded from duplicate detection."""
+    validator.validation_results = [
+        {"status": "rejected", "rejection_reason": "insufficient_identifiers", "inchikey_by_smiles": None, "inchikey_14_by_smiles": None, "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 1, "name": "A"},
+        {"status": "validated", "inchikey_by_smiles": "AAAAAAAAA", "inchikey_14_by_smiles": "AAAAAAAAA1234", "exact_duplicate_group": None, "stereo_duplicate_group": None, "row_number": 2, "name": "B"},
+    ]
+
+    validator.check_exact_duplicates()
+
+    assert validator.validation_results[0]["exact_duplicate_group"] is None
+    assert validator.validation_results[1]["exact_duplicate_group"] is None
+
+
+@pytest.mark.fast
+def test_validate_chemical_sets_inchikey_14_by_smiles(validator, mocker):
+    """inchikey_14_by_smiles is set from inchikey_by_smiles when SMILES query succeeds."""
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
+        ("123", "INCHIKEY123ABCD"),  # by name
+        ("456", "INCHIKEY456EFGH"),  # by cas
+        ("123", "INCHIKEY123ABCD"),  # by smiles
+    ])
+
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
+    assert result["status"] == "rejected"
+    assert result["rejection_reason"] == "pubchem_discordance"
+    assert result["inchikey_by_smiles"] == "INCHIKEY123ABCD"
+    assert result["inchikey_14_by_smiles"] == "INCHIKEY123ABCD"[:14]
+
+
+@pytest.mark.fast
+def test_validate_chemical_inchikey_14_by_smiles_not_set_on_invalid_smiles(validator, mocker):
+    """inchikey_14_by_smiles remains None when SMILES is invalid."""
+    validator.smiles_retrieval_mode = False
+
+    mock_compound = MagicMock()
+    mock_compound.cid = "241"
+    mock_compound.inchikey = "UHOVQNZJYSORNB"
+
+    mocker.patch(
+        "pubchempy.get_compounds",
+        side_effect=[
+            [mock_compound],
+            [mock_compound],
+            Exception("PubChem HTTP Error 400 PUGREST.BadRequest: Unable to standardize the given structure"),
+        ],
+    )
+    mocker.patch("src.validator.time.sleep")
+
+    result = validator.validate_chemical(1, "Benzene", "71-43-2", "Cdd")
+    assert result["status"] == "rejected"
+    assert result["rejection_reason"] == "invalid_smiles"
+    assert result["inchikey_14_by_smiles"] is None
 
 
 # ── File I/O ───────────────────────────────────────────────────────────

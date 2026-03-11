@@ -85,6 +85,7 @@ def main() -> None:
         "--output-dir=dist",
         "--enable-plugin=tk-inter",
         "--include-data-file=LICENSE=LICENSE",
+        "--include-data-file=pixi.toml=pixi.toml",
     ]
 
     if sys.platform.startswith("win"):

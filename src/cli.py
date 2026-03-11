@@ -41,6 +41,11 @@ Output format options:
   --output-format xlsx   Save only Excel (.xlsx)
   --output-format csv    Save only CSV (.csv)
   --output-format both   Save both (.xlsx + .csv)
+
+Excel sheet options:
+  --sheet 0              First sheet (default)
+  --sheet 1              Second sheet
+  --sheet MySheet        Sheet named "MySheet"
         """
     )
     parser.add_argument('input_file', help='Input file path (CSV or Excel)')
@@ -66,6 +71,13 @@ Output format options:
         help='Output format for results (default: both)'
     )
 
+    parser.add_argument(
+        '--sheet',
+        default=None,
+        metavar='SHEET',
+        help='Sheet name or 0-based index for Excel input (default: first sheet)'
+    )
+
     args = parser.parse_args()
 
     if args.debug:
@@ -82,7 +94,14 @@ Output format options:
     logger.info("CHEM VALIDATOR (CLI)")
     logger.info("=" * 70)
 
-    validator = UnifiedChemicalValidator(args.input_file, args.output_folder)
+    sheet = args.sheet
+    if sheet is not None:
+        try:
+            sheet = int(sheet)
+        except ValueError:
+            pass  # keep as string sheet name
+
+    validator = UnifiedChemicalValidator(args.input_file, args.output_folder, sheet=sheet)
     success = validator.validate_csv()
 
     if validator.fatal_error:

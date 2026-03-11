@@ -17,9 +17,9 @@ In the GUI, see `Help -> About...` for version, license, and repo link.
 - **Two validation modes:**
   - **Full mode** — input has Name + CAS + SMILES columns; validates all three directly
   - **Retrieval mode** — input has only Name + CAS; retrieves SMILES from PubChem, then validates
-- **Duplicate detection:**
-  - **Exact duplicates** — full InChIKey match
-  - **Stereoisomer duplicates** — first 14 characters of InChIKey (canonical layer) match
+- **Duplicate detection** — applied to all rows with a valid SMILES-derived InChIKey, regardless of validation outcome:
+  - **Exact duplicates** — full InChIKey match; subsequent occurrences are rejected
+  - **Stereoisomer duplicates** — first 14 characters of InChIKey (connectivity layer) match; subsequent occurrences are marked `stereo_duplicate`
 - **Excel + CSV output** — results saved as `.xlsx` (auto-filters/column widths) and `.csv`
 - **Rate limiting** — 0.2s delay between PubChem API calls to respect usage limits
 
@@ -68,11 +68,15 @@ pixi run cli input.csv --output-folder /path/to/output
 pixi run cli input.csv --output-format csv
 pixi run cli input.csv --output-format xlsx
 pixi run cli input.csv --output-format both
+
+# Specify Excel sheet (by name or 0-based index; default: first sheet)
+pixi run cli input.xlsx --sheet 1
+pixi run cli input.xlsx --sheet "Raw Data"
 ```
 
 ### Input Format
 
-CSV or Excel file (`.csv`, `.xlsx`, `.xls`) with columns:
+CSV or Excel file (`.csv`, `.xlsx`, `.xls`) with columns. For Excel files, the first sheet is used by default; use `--sheet` (CLI) or the Sheet field (GUI) to select a different sheet by name or 0-based index:
 
 | Mode | Required Columns |
 |------|-----------------|
@@ -97,8 +101,12 @@ Results file(s) named `validation_results_{input}_{timestamp}.xlsx` and/or `vali
 | `cid_by_name` | CID resolved from name |
 | `cid_by_cas` | CID resolved from CAS |
 | `cid_by_smiles` | CID resolved from SMILES |
-| `validated_cid` | Confirmed CID (when all match) |
-| `validated_inchikey` | Confirmed InChIKey |
+| `inchikey_by_name` | InChIKey resolved from name |
+| `inchikey_by_cas` | InChIKey resolved from CAS |
+| `inchikey_by_smiles` | InChIKey resolved from SMILES |
+| `inchikey_14_by_smiles` | First 14 characters of `inchikey_by_smiles` — connectivity layer, used for stereoisomer grouping |
+| `validated_cid` | Confirmed CID (when all identifiers match) |
+| `validated_inchikey` | Confirmed InChIKey (when all identifiers match) |
 | `status` | `validated`, `rejected`, or `stereo_duplicate` |
 | `rejection_reason` | Reason for rejection (if applicable) |
 | `exact_duplicate_group` | Group number for exact duplicates |
@@ -109,8 +117,8 @@ Results file(s) named `validation_results_{input}_{timestamp}.xlsx` and/or `vali
 | Status | Meaning |
 |--------|---------|
 | `validated` | All resolved CIDs match |
-| `rejected` | Validation failed |
-| `stereo_duplicate` | Validated, but is a stereoisomer of another entry |
+| `rejected` | Validation failed (see `rejection_reason`) |
+| `stereo_duplicate` | Not rejected, but shares the 14-character canonical InChIKey with an earlier entry |
 
 ### Rejection Reasons
 
@@ -119,7 +127,7 @@ Results file(s) named `validation_results_{input}_{timestamp}.xlsx` and/or `vali
 | `insufficient_identifiers` | Missing required identifiers for the active mode |
 | `pubchem_discordance` | CIDs from different identifiers do not match |
 | `identifier_not_found` | One or more identifiers not found in PubChem |
-| `exact_duplicate` | Full InChIKey matches a previously validated chemical |
+| `exact_duplicate` | `inchikey_by_smiles` matches an earlier entry in the dataset |
 | `complex_chemical_no_smiles` | PubChem has the compound but no SMILES available |
 | `invalid_smiles` | SMILES string is not a valid/parseable structure |
 | `invalid_cas` | CAS number is malformed or fails the CAS check digit |
@@ -136,11 +144,11 @@ src/
 └── cli.py          # Command-line interface
 
 tests/
-├── test_validator.py     # 46 unit tests for core logic
-├── test_gui.py           # 20 tests (headless-safe, mocked Tkinter)
-├── test_cli.py           # 5 CLI tests
-├── test_main.py          # 2 routing tests
-├── test_integration.py   # 10 slow tests (real PubChem API)
+├── test_validator.py     # unit tests for core logic
+├── test_gui.py           # headless-safe tests (mocked Tkinter)
+├── test_cli.py           # CLI tests
+├── test_main.py          # routing tests
+├── test_integration.py   # slow tests (real PubChem API)
 ├── conftest.py           # Pytest markers
 └── fixtures/             # Test CSV files
 ```

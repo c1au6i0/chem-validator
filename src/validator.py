@@ -5,7 +5,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -121,9 +121,10 @@ class UnifiedChemicalValidator:
         smiles_retrieval_mode: Boolean indicating operational mode
     """
 
-    def __init__(self, input_path: str, output_folder: Optional[str] = None):
+    def __init__(self, input_path: str, output_folder: Optional[str] = None, sheet: Optional[Union[str, int]] = None):
         self.input_path = input_path
         self.output_folder = output_folder
+        self.sheet = sheet
         self.validation_results: List[Dict[str, Any]] = []
         self.smiles_retrieval_mode = False
         self._last_pubchem_error: Optional[str] = None
@@ -428,6 +429,7 @@ class UnifiedChemicalValidator:
             'inchikey_by_name': None,
             'inchikey_by_cas': None,
             'inchikey_by_smiles': None,
+            'inchikey_14_by_smiles': None,
             'validated_cid': None,
             'validated_inchikey': None,
             'validated_canonical_inchikey_14': None,
@@ -533,6 +535,8 @@ class UnifiedChemicalValidator:
             pubchem_errors.append(f"smiles={self._last_pubchem_error}")
         result['cid_by_smiles'] = cid_by_smiles
         result['inchikey_by_smiles'] = inchikey_by_smiles
+        if inchikey_by_smiles:
+            result['inchikey_14_by_smiles'] = inchikey_by_smiles[:14]
 
         if pubchem_errors:
             result['pubchem_error'] = "; ".join(pubchem_errors)
@@ -585,9 +589,16 @@ class UnifiedChemicalValidator:
 
     def check_exact_duplicates(self) -> bool:
         """
-        Check for exact duplicates based on full InChIKey match.
+        Check for exact duplicates based on full InChIKey from SMILES.
 
-        Keeps the first occurrence as validated, rejects subsequent ones.
+        Uses inchikey_by_smiles as the structural fingerprint for all rows
+        where it is available, regardless of validation status.
+
+        For duplicates beyond the first occurrence:
+        - If the row is already rejected, preserves the original rejection_reason
+          and adds the duplicate group number (informational).
+        - If the row is not rejected, changes status to rejected/exact_duplicate.
+
         Mutates validation_results in place.
 
         Returns:
@@ -595,64 +606,66 @@ class UnifiedChemicalValidator:
         """
         logger.info("Checking exact duplicates...")
 
-        validated = [r for r in self.validation_results if r['status'] == 'validated']
-        with_inchikey = [r for r in validated if r['validated_inchikey']]
+        eligible = [r for r in self.validation_results if r.get('inchikey_by_smiles')]
 
-        inchikey_groups = {}
-        for chem in with_inchikey:
-            inchikey = chem['validated_inchikey']
+        inchikey_groups: Dict[str, List[Dict[str, Any]]] = {}
+        for chem in eligible:
+            inchikey = chem['inchikey_by_smiles']
             inchikey_groups.setdefault(inchikey, []).append(chem)
 
         duplicate_group_num = 1
-        duplicates_found = False
 
         for inchikey, chems in inchikey_groups.items():
             if len(chems) > 1:
+                # validated rows win regardless of input order
+                chems.sort(key=lambda r: 0 if r['status'] == 'validated' else 1)
                 for i, chem in enumerate(chems):
-                    if i == 0:
-                        chem['exact_duplicate_group'] = duplicate_group_num
-                    else:
+                    chem['exact_duplicate_group'] = duplicate_group_num
+                    if i > 0 and chem['status'] != 'rejected':
                         chem['status'] = 'rejected'
                         chem['rejection_reason'] = 'exact_duplicate'
-                        chem['exact_duplicate_group'] = duplicate_group_num
                 duplicate_group_num += 1
-                duplicates_found = True
 
         return True
 
     def check_stereoisomer_duplicates(self) -> bool:
         """
-        Check for stereoisomer duplicates based on 14-char canonical InChIKey.
+        Check for stereoisomer duplicates based on 14-char canonical InChIKey from SMILES.
 
-        Keeps the first occurrence, marks subsequent ones as stereo_duplicate.
-        Mutates validation_results in place. Must run after check_exact_duplicates.
+        Uses inchikey_14_by_smiles (the connectivity layer of the SMILES-derived
+        InChIKey) as the structural fingerprint for all rows where it is available,
+        regardless of validation status. Must run after check_exact_duplicates.
+
+        For duplicates beyond the first occurrence:
+        - If the row is already rejected, preserves the original rejection_reason
+          and adds the duplicate group number (informational).
+        - If the row is not rejected, changes status to stereo_duplicate (not rejected).
+
+        Mutates validation_results in place.
 
         Returns:
             True (always succeeds)
         """
         logger.info("Checking stereoisomer duplicates...")
 
-        non_rejected = [r for r in self.validation_results if r['status'] != 'rejected']
-        with_canonical = [r for r in non_rejected if r['validated_canonical_inchikey_14']]
+        eligible = [r for r in self.validation_results if r.get('inchikey_14_by_smiles')]
 
-        canonical_groups = {}
-        for chem in with_canonical:
-            canonical = chem['validated_canonical_inchikey_14']
-            canonical_groups.setdefault(canonical, []).append(chem)
+        connectivity_groups: Dict[str, List[Dict[str, Any]]] = {}
+        for chem in eligible:
+            connectivity = chem['inchikey_14_by_smiles']
+            connectivity_groups.setdefault(connectivity, []).append(chem)
 
         duplicate_group_num = 1
-        duplicates_found = False
 
-        for canonical, chems in canonical_groups.items():
+        for connectivity, chems in connectivity_groups.items():
             if len(chems) > 1:
+                # validated rows win regardless of input order
+                chems.sort(key=lambda r: 0 if r['status'] == 'validated' else 1)
                 for i, chem in enumerate(chems):
-                    if i == 0:
-                        chem['stereo_duplicate_group'] = duplicate_group_num
-                    else:
+                    chem['stereo_duplicate_group'] = duplicate_group_num
+                    if i > 0 and chem['status'] != 'rejected':
                         chem['status'] = 'stereo_duplicate'
-                        chem['stereo_duplicate_group'] = duplicate_group_num
                 duplicate_group_num += 1
-                duplicates_found = True
 
         return True
 
@@ -682,7 +695,7 @@ class UnifiedChemicalValidator:
             # Read everything as strings to avoid Excel/CSV type coercion
             # (e.g., CAS values turning into numbers/dates).
             if input_path.suffix.lower() in ['.xlsx', '.xls']:
-                df = pd.read_excel(self.input_path, dtype=str)
+                df = pd.read_excel(self.input_path, dtype=str, sheet_name=self.sheet if self.sheet is not None else 0)
             else:
                 df = pd.read_csv(self.input_path, encoding='utf-8', dtype=str)
         except Exception as e:
@@ -829,6 +842,7 @@ class UnifiedChemicalValidator:
             'inchikey_by_name',
             'inchikey_by_cas',
             'inchikey_by_smiles',
+            'inchikey_14_by_smiles',
             'validated_cid',
             'validated_inchikey',
             'validated_canonical_inchikey_14',

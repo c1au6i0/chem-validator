@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
 from pathlib import Path
+from typing import Optional, Union
 
 # Local
 from src.validator import UnifiedChemicalValidator
@@ -35,6 +36,7 @@ class ValidatorGUI:
         self.file_path = tk.StringVar()
         self.output_mode = tk.StringVar(value="current")  # current, auto, custom
         self.custom_output_path = tk.StringVar()
+        self.sheet_name = tk.StringVar()
         self.verbose_logging = tk.BooleanVar(value=False)
         self.output_format = tk.StringVar(value="both")
         self.is_validating = False
@@ -54,6 +56,12 @@ class ValidatorGUI:
 
         ttk.Entry(file_frame, textvariable=self.file_path, width=60).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         ttk.Button(file_frame, text="Browse...", command=self.browse_file).pack(side=tk.RIGHT)
+
+        sheet_row = ttk.Frame(file_frame)
+        sheet_row.pack(fill=tk.X, pady=(5, 0))
+        ttk.Label(sheet_row, text="Sheet (Excel only):").pack(side=tk.LEFT)
+        ttk.Entry(sheet_row, textvariable=self.sheet_name, width=20).pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Label(sheet_row, text="name or index — leave blank for first sheet").pack(side=tk.LEFT, padx=(10, 0))
 
         # --- Output Selection Section ---
         output_frame = ttk.LabelFrame(main_frame, text="Output Location", padding="10")
@@ -194,6 +202,15 @@ class ValidatorGUI:
         verbose = bool(self.verbose_logging.get())
         output_format = str(self.output_format.get() or "both").strip().lower()
 
+        raw_sheet = self.sheet_name.get().strip()
+        if not raw_sheet:
+            sheet = None
+        else:
+            try:
+                sheet = int(raw_sheet)
+            except ValueError:
+                sheet = raw_sheet
+
         self.is_validating = True
         self.run_btn.config(state='disabled')
         self.log_text.config(state='normal')
@@ -202,17 +219,17 @@ class ValidatorGUI:
 
         threading.Thread(
             target=self.run_validation,
-            args=(input_path, output_folder, verbose, output_format),
+            args=(input_path, output_folder, verbose, output_format, sheet),
             daemon=True,
         ).start()
 
-    def run_validation(self, input_path: str, output_folder: str | None, verbose: bool, output_format: str):
+    def run_validation(self, input_path: str, output_folder: str | None, verbose: bool, output_format: str, sheet: Optional[Union[str, int]] = None):
         """Run validation in background thread with GUI logging."""
         self.log("Starting validation...")
         self.update_status("Validating...")
 
         try:
-            validator = UnifiedChemicalValidator(input_path, output_folder)
+            validator = UnifiedChemicalValidator(input_path, output_folder, sheet=sheet)
 
             # Custom logging handler to redirect logging.info to GUI
             class GuiHandler(logging.Handler):
