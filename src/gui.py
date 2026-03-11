@@ -57,8 +57,10 @@ class ValidatorGUI:
         file_frame = ttk.LabelFrame(main_frame, text="Input File", padding="10")
         file_frame.pack(fill=tk.X, pady=(0, 10))
 
-        ttk.Entry(file_frame, textvariable=self.file_path, width=60).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-        ttk.Button(file_frame, text="Browse...", command=self.browse_file).pack(side=tk.RIGHT)
+        file_row = ttk.Frame(file_frame)
+        file_row.pack(fill=tk.X)
+        ttk.Entry(file_row, textvariable=self.file_path, width=60).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        ttk.Button(file_row, text="Browse...", command=self.browse_file).pack(side=tk.RIGHT)
 
         sheet_row = ttk.Frame(file_frame)
         sheet_row.pack(fill=tk.X, pady=(5, 0))
