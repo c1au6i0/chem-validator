@@ -67,8 +67,8 @@ Excel sheet options:
     parser.add_argument(
         '--output-format',
         choices=['xlsx', 'csv', 'both'],
-        default='both',
-        help='Output format for results (default: both)'
+        default='xlsx',
+        help='Output format for results (default: xlsx)'
     )
 
     parser.add_argument(

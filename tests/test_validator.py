@@ -481,9 +481,8 @@ def test_save_results_creates_xlsx(tmp_path, mocker):
 
     assert success is True
     xlsx_files = list(tmp_path.glob("validation_results_*.xlsx"))
-    csv_files = list(tmp_path.glob("validation_results_*.csv"))
     assert len(xlsx_files) == 1
-    assert len(csv_files) == 1
+    assert len(list(tmp_path.glob("validation_results_*.csv"))) == 0
 
     # Verify the file can be read back
     result_df = pd.read_excel(xlsx_files[0])
@@ -509,10 +508,8 @@ def test_save_results_auto_folder(tmp_path, mocker, monkeypatch):
     assert success is True
     auto_dir = tmp_path / "output" / "my_chemicals"
     assert auto_dir.exists()
-    xlsx_files = list(auto_dir.glob("*.xlsx"))
-    csv_files = list(auto_dir.glob("*.csv"))
-    assert len(xlsx_files) == 1
-    assert len(csv_files) == 1
+    assert len(list(auto_dir.glob("*.xlsx"))) == 1
+    assert len(list(auto_dir.glob("*.csv"))) == 0
 
 
 # ── PubChem Query Tests ─────────────────────────────────────────────────
@@ -701,10 +698,8 @@ def test_save_results_cwd(tmp_path, mocker, monkeypatch):
     success = v.save_results()
 
     assert success is True
-    xlsx_files = list(tmp_path.glob("validation_results_*.xlsx"))
-    csv_files = list(tmp_path.glob("validation_results_*.csv"))
-    assert len(xlsx_files) == 1
-    assert len(csv_files) == 1
+    assert len(list(tmp_path.glob("validation_results_*.xlsx"))) == 1
+    assert len(list(tmp_path.glob("validation_results_*.csv"))) == 0
 
 
 @pytest.mark.fast

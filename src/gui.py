@@ -41,7 +41,7 @@ class ValidatorGUI:
         self.custom_output_path = tk.StringVar()
         self.sheet_name = tk.StringVar()
         self.verbose_logging = tk.BooleanVar(value=False)
-        self.output_format = tk.StringVar(value="both")
+        self.output_format = tk.StringVar(value="xlsx")
         self.is_validating = False
 
         self.setup_ui()
@@ -112,7 +112,7 @@ class ValidatorGUI:
         ttk.Combobox(
             action_frame,
             textvariable=self.output_format,
-            values=("both", "xlsx", "csv"),
+            values=("xlsx", "both", "csv"),
             state="readonly",
             width=8,
         ).pack(side=tk.LEFT)
@@ -226,7 +226,7 @@ class ValidatorGUI:
                 return
 
         verbose = bool(self.verbose_logging.get())
-        output_format = str(self.output_format.get() or "both").strip().lower()
+        output_format = str(self.output_format.get() or "xlsx").strip().lower()
 
         raw_sheet = self.sheet_name.get().strip()
         sheet: Optional[str] = raw_sheet if raw_sheet else None

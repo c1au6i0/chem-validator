@@ -784,7 +784,7 @@ class UnifiedChemicalValidator:
 
         return len(rejected) == 0
 
-    def save_results(self, output_format: str = "both") -> bool:
+    def save_results(self, output_format: str = "xlsx") -> bool:
         """
         Save validation results to Excel/CSV.
 
@@ -795,10 +795,10 @@ class UnifiedChemicalValidator:
         Returns:
             True if requested file(s) were saved successfully, False on error
         """
-        output_format = (output_format or "both").strip().lower()
+        output_format = (output_format or "xlsx").strip().lower()
         if output_format not in {"xlsx", "csv", "both"}:
-            logger.warning("Unknown output_format=%r; defaulting to 'both'", output_format)
-            output_format = "both"
+            logger.warning("Unknown output_format=%r; defaulting to 'xlsx'", output_format)
+            output_format = "xlsx"
 
         input_file = Path(self.input_path)
         input_stem = input_file.stem.lower().replace(' ', '_')
