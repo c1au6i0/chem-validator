@@ -8,6 +8,9 @@ from tkinter import ttk, filedialog, scrolledtext, messagebox
 from pathlib import Path
 from typing import Optional, Union
 
+# Third-party
+import pandas as pd
+
 # Local
 from src.validator import UnifiedChemicalValidator
 from src.app_meta import APP_NAME, LICENSE, REPO_URL, __version__
@@ -60,8 +63,10 @@ class ValidatorGUI:
         sheet_row = ttk.Frame(file_frame)
         sheet_row.pack(fill=tk.X, pady=(5, 0))
         ttk.Label(sheet_row, text="Sheet (Excel only):").pack(side=tk.LEFT)
-        ttk.Entry(sheet_row, textvariable=self.sheet_name, width=20).pack(side=tk.LEFT, padx=(5, 0))
-        ttk.Label(sheet_row, text="name or index — leave blank for first sheet").pack(side=tk.LEFT, padx=(10, 0))
+        self.sheet_combo = ttk.Combobox(
+            sheet_row, textvariable=self.sheet_name, width=30, state="disabled"
+        )
+        self.sheet_combo.pack(side=tk.LEFT, padx=(5, 0))
 
         # --- Output Selection Section ---
         output_frame = ttk.LabelFrame(main_frame, text="Output Location", padding="10")
@@ -157,6 +162,25 @@ class ValidatorGUI:
         )
         if filename:
             self.file_path.set(filename)
+            self._load_sheets(filename)
+
+    def _load_sheets(self, filepath: str) -> None:
+        """Populate the sheet combobox if filepath is an Excel file, else disable it."""
+        path = Path(filepath)
+        if path.suffix.lower() in (".xlsx", ".xls"):
+            try:
+                sheets = pd.ExcelFile(filepath).sheet_names
+            except Exception:
+                sheets = []
+            if sheets:
+                self.sheet_combo.config(state="readonly", values=sheets)
+                self.sheet_name.set(sheets[0])
+            else:
+                self.sheet_combo.config(state="disabled", values=[])
+                self.sheet_name.set("")
+        else:
+            self.sheet_combo.config(state="disabled", values=[])
+            self.sheet_name.set("")
 
     def browse_output_folder(self):
         folder = filedialog.askdirectory(title="Select Output Folder")
@@ -203,13 +227,7 @@ class ValidatorGUI:
         output_format = str(self.output_format.get() or "both").strip().lower()
 
         raw_sheet = self.sheet_name.get().strip()
-        if not raw_sheet:
-            sheet = None
-        else:
-            try:
-                sheet = int(raw_sheet)
-            except ValueError:
-                sheet = raw_sheet
+        sheet: Optional[str] = raw_sheet if raw_sheet else None
 
         self.is_validating = True
         self.run_btn.config(state='disabled')

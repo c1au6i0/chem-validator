@@ -45,6 +45,7 @@ pixi run gui
 GUI notes:
 - Output "Same folder as input file" saves next to the selected input.
 - Enable "Verbose logging" to include per-query PubChem details in the log.
+- For Excel files, the **Sheet** dropdown auto-populates with all sheet names when a file is selected; the first sheet is pre-selected. Click the dropdown to choose a different sheet. The control is disabled for CSV files.
 
 Or double-click the built executable — launches the GUI by default when no arguments are provided.
 
@@ -76,7 +77,10 @@ pixi run cli input.xlsx --sheet "Raw Data"
 
 ### Input Format
 
-CSV or Excel file (`.csv`, `.xlsx`, `.xls`) with columns. For Excel files, the first sheet is used by default; use `--sheet` (CLI) or the Sheet field (GUI) to select a different sheet by name or 0-based index:
+CSV or Excel file (`.csv`, `.xlsx`, `.xls`) with columns. For Excel files, the first sheet is used by default:
+- **GUI** — the Sheet dropdown auto-populates with all sheet names; select the one you need
+- **CLI** — use `--sheet` to specify by name or 0-based index
+
 
 | Mode | Required Columns |
 |------|-----------------|
@@ -172,7 +176,7 @@ tests/
 
 Tests are marked with `@pytest.mark.fast` or `@pytest.mark.slow`:
 
-- **Fast tests** (73) — unit tests with mocked PubChem responses, run in <1s
+- **Fast tests** (81) — unit tests with mocked PubChem responses, run in <1s
 - **Slow tests** (10) — integration tests hitting the real PubChem API
 
 Pre-commit hooks automatically run fast tests and verify 80% coverage before each commit.

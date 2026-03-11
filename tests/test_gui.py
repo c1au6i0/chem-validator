@@ -307,3 +307,123 @@ def test_gui_about_dialog():
         assert "License: GPL-3.0-or-later" in msg
         assert "https://github.com/c1au6i0/chem-validator" in msg
         assert "Copyright" not in msg
+
+
+# ---------------------------------------------------------------------------
+# _load_sheets tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.fast
+def test_load_sheets_excel_multiple_sheets():
+    """Excel file with multiple sheets: combobox enabled, first sheet selected."""
+    app = _make_gui()
+    mock_xf = MagicMock()
+    mock_xf.sheet_names = ["Sheet1", "Sheet2", "Sheet3"]
+
+    with patch("src.gui.pd.ExcelFile", return_value=mock_xf):
+        app._load_sheets("/tmp/data.xlsx")
+
+    app.sheet_combo.config.assert_called_with(state="readonly", values=["Sheet1", "Sheet2", "Sheet3"])
+    assert app.sheet_name.get() == "Sheet1"
+
+
+@pytest.mark.fast
+def test_load_sheets_excel_single_sheet():
+    """Excel file with one sheet: combobox enabled with that sheet selected."""
+    app = _make_gui()
+    mock_xf = MagicMock()
+    mock_xf.sheet_names = ["Only Sheet"]
+
+    with patch("src.gui.pd.ExcelFile", return_value=mock_xf):
+        app._load_sheets("/tmp/data.xlsx")
+
+    app.sheet_combo.config.assert_called_with(state="readonly", values=["Only Sheet"])
+    assert app.sheet_name.get() == "Only Sheet"
+
+
+@pytest.mark.fast
+def test_load_sheets_excel_xls_extension():
+    """Legacy .xls files are also treated as Excel."""
+    app = _make_gui()
+    mock_xf = MagicMock()
+    mock_xf.sheet_names = ["Data"]
+
+    with patch("src.gui.pd.ExcelFile", return_value=mock_xf):
+        app._load_sheets("/tmp/legacy.xls")
+
+    app.sheet_combo.config.assert_called_with(state="readonly", values=["Data"])
+    assert app.sheet_name.get() == "Data"
+
+
+@pytest.mark.fast
+def test_load_sheets_excel_read_error():
+    """If pd.ExcelFile raises, combobox is disabled and sheet cleared."""
+    app = _make_gui()
+
+    with patch("src.gui.pd.ExcelFile", side_effect=Exception("corrupt file")):
+        app._load_sheets("/tmp/bad.xlsx")
+
+    app.sheet_combo.config.assert_called_with(state="disabled", values=[])
+    assert app.sheet_name.get() == ""
+
+
+@pytest.mark.fast
+def test_load_sheets_csv_disables_combobox():
+    """CSV file disables the sheet combobox and clears the selection."""
+    app = _make_gui()
+    app.sheet_name.set("OldSheet")
+
+    app._load_sheets("/tmp/data.csv")
+
+    app.sheet_combo.config.assert_called_with(state="disabled", values=[])
+    assert app.sheet_name.get() == ""
+
+
+@pytest.mark.fast
+def test_browse_file_excel_populates_sheets():
+    """browse_file with an xlsx triggers _load_sheets and populates combobox."""
+    app = _make_gui()
+    mock_xf = MagicMock()
+    mock_xf.sheet_names = ["Alpha", "Beta"]
+
+    with patch("src.gui.filedialog.askopenfilename", return_value="/tmp/test.xlsx"), \
+         patch("src.gui.pd.ExcelFile", return_value=mock_xf):
+        app.browse_file()
+
+    assert app.file_path.get() == "/tmp/test.xlsx"
+    app.sheet_combo.config.assert_called_with(state="readonly", values=["Alpha", "Beta"])
+    assert app.sheet_name.get() == "Alpha"
+
+
+@pytest.mark.fast
+def test_browse_file_csv_disables_sheet_combo():
+    """browse_file with a csv disables the sheet combobox."""
+    app = _make_gui()
+    app.sheet_name.set("OldSheet")
+
+    with patch("src.gui.filedialog.askopenfilename", return_value="/tmp/test.csv"):
+        app.browse_file()
+
+    assert app.file_path.get() == "/tmp/test.csv"
+    app.sheet_combo.config.assert_called_with(state="disabled", values=[])
+    assert app.sheet_name.get() == ""
+
+
+@pytest.mark.fast
+def test_gui_start_validation_excel_passes_sheet_name():
+    """start_validation_thread passes the selected sheet name for an xlsx file."""
+    app = _make_gui()
+    mock_xf = MagicMock()
+    mock_xf.sheet_names = ["Results", "Raw"]
+
+    with patch("src.gui.filedialog.askopenfilename", return_value="/tmp/test.xlsx"), \
+         patch("src.gui.pd.ExcelFile", return_value=mock_xf):
+        app.browse_file()
+
+    app.output_mode.set("auto")
+
+    with patch("threading.Thread") as mock_thread:
+        app.start_validation_thread()
+        args = mock_thread.call_args.kwargs["args"]
+        assert args[0] == "/tmp/test.xlsx"
+        assert args[4] == "Results"  # sheet passed to validator
