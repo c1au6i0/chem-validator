@@ -120,9 +120,9 @@ def test_identify_columns_missing_raises(validator):
 def test_validate_chemical_all_match(validator, mocker):
     """All three identifiers resolve to the same CID -> validated."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "INCHIKEY123"),  # by name
-        ("123", "INCHIKEY123"),  # by cas
-        ("123", "INCHIKEY123"),  # by smiles
+        ("123", "INCHIKEY123", None),  # by name
+        ("123", "INCHIKEY123", None),  # by cas
+        ("123", "INCHIKEY123", None),  # by smiles
     ])
 
     result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
@@ -136,9 +136,9 @@ def test_validate_chemical_all_match(validator, mocker):
 def test_validate_chemical_discordance(validator, mocker):
     """CIDs mismatch -> pubchem_discordance."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "IK1"),  # by name
-        ("456", "IK2"),  # by cas
-        ("123", "IK1"),  # by smiles
+        ("123", "IK1", None),  # by name
+        ("456", "IK2", None),  # by cas
+        ("123", "IK1", None),  # by smiles
     ])
 
     result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
@@ -150,9 +150,9 @@ def test_validate_chemical_discordance(validator, mocker):
 def test_validate_chemical_two_found_agree(validator, mocker):
     """Only 2 of 3 found but they agree -> identifier_not_found."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "IK1"),   # by name
-        ("123", "IK1"),   # by cas
-        (None, None),     # smiles not found
+        ("123", "IK1", None),   # by name
+        ("123", "IK1", None),   # by cas
+        (None, None, None),     # smiles not found
     ])
 
     result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
@@ -164,9 +164,9 @@ def test_validate_chemical_two_found_agree(validator, mocker):
 def test_validate_chemical_two_found_disagree(validator, mocker):
     """2 of 3 found but they disagree."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "IK1"),   # by name
-        ("456", "IK2"),   # by cas
-        (None, None),     # smiles not found
+        ("123", "IK1", None),   # by name
+        ("456", "IK2", None),   # by cas
+        (None, None, None),     # smiles not found
     ])
 
     result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
@@ -216,7 +216,7 @@ def test_validate_chemical_invalid_cas_rejected(validator, mocker):
 @pytest.mark.fast
 def test_validate_chemical_none_found(validator, mocker):
     """None of the identifiers found."""
-    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
     assert result["status"] == "rejected"
@@ -244,7 +244,7 @@ def test_validate_chemical_insufficient_retrieval_mode(validator):
 @pytest.mark.fast
 def test_validate_chemical_progress_callback(validator, mocker):
     """Progress callback is called during validation."""
-    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
     messages = []
     result = validator.validate_chemical(1, "Test", "123-45-6", "C(=O)C", progress_callback=messages.append)
     assert len(messages) > 0
@@ -375,9 +375,9 @@ def test_exact_duplicates_no_inchikey_excluded(validator):
 def test_validate_chemical_sets_inchikey_14_by_smiles(validator, mocker):
     """inchikey_14_by_smiles is set from inchikey_by_smiles when SMILES query succeeds."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "INCHIKEY123ABCD"),  # by name
-        ("456", "INCHIKEY456EFGH"),  # by cas
-        ("123", "INCHIKEY123ABCD"),  # by smiles
+        ("123", "INCHIKEY123ABCD", None),  # by name
+        ("456", "INCHIKEY456EFGH", None),  # by cas
+        ("123", "INCHIKEY123ABCD", None),  # by smiles
     ])
 
     result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
@@ -385,6 +385,29 @@ def test_validate_chemical_sets_inchikey_14_by_smiles(validator, mocker):
     assert result["rejection_reason"] == "pubchem_discordance"
     assert result["inchikey_by_smiles"] == "INCHIKEY123ABCD"
     assert result["inchikey_14_by_smiles"] == "INCHIKEY123ABCD"[:14]
+
+
+@pytest.mark.fast
+def test_validate_chemical_sets_name_by_smiles(validator, mocker):
+    """name_by_smiles is populated from the SMILES query iupac_name."""
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
+        ("123", "IK1", None),          # by name
+        ("456", "IK2", None),          # by cas (discordance)
+        ("123", "IK1", "acetone"),     # by smiles — has iupac_name
+    ])
+
+    result = validator.validate_chemical(1, "Test", "67-64-1", "CC(C)=O")
+    assert result["rejection_reason"] == "pubchem_discordance"
+    assert result["name_by_smiles"] == "acetone"
+
+
+@pytest.mark.fast
+def test_validate_chemical_name_by_smiles_none_when_not_found(validator, mocker):
+    """name_by_smiles is None when SMILES query returns no compound."""
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
+
+    result = validator.validate_chemical(1, "Test", "67-64-1", "C(=O)C")
+    assert result["name_by_smiles"] is None
 
 
 @pytest.mark.fast
@@ -421,7 +444,7 @@ def test_validate_csv_reads_csv(tmp_path, mocker):
     csv_file.write_text("Name,CAS,SMILES\nAcetone,67-64-1,CC(C)=O\n")
 
     v = UnifiedChemicalValidator(str(csv_file))
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     v.validate_csv()
     assert len(v.validation_results) == 1
@@ -435,7 +458,7 @@ def test_validate_csv_reads_excel(tmp_path, mocker):
     df.to_excel(xlsx_file, index=False)
 
     v = UnifiedChemicalValidator(str(xlsx_file))
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     v.validate_csv()
     assert len(v.validation_results) == 1
@@ -448,7 +471,7 @@ def test_validate_csv_drops_empty_rows(tmp_path, mocker):
     csv_file.write_text("Name,CAS,SMILES\nAcetone,67-64-1,CC(C)=O\n,,\n")
 
     v = UnifiedChemicalValidator(str(csv_file))
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     v.validate_csv()
     assert len(v.validation_results) == 1
@@ -474,7 +497,7 @@ def test_save_results_creates_xlsx(tmp_path, mocker):
     csv_file.write_text("Name,CAS,SMILES\nAcetone,67-64-1,CC(C)=O\n")
 
     v = UnifiedChemicalValidator(str(csv_file), output_folder=str(tmp_path))
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     v.validate_csv()
     success = v.save_results()
@@ -491,6 +514,43 @@ def test_save_results_creates_xlsx(tmp_path, mocker):
 
 
 @pytest.mark.fast
+def test_save_results_cid_hyperlinks(tmp_path, mocker):
+    """save_results adds hyperlinks on CID columns in xlsx output."""
+    import openpyxl
+
+    csv_file = tmp_path / "input.csv"
+    csv_file.write_text("Name,CAS,SMILES\nAcetone,67-64-1,CC(C)=O\n")
+
+    v = UnifiedChemicalValidator(str(csv_file), output_folder=str(tmp_path))
+    # Inject a validated result with known CIDs so hyperlinks are created
+    v.validation_results = [{
+        'row_number': 1, 'name': 'Acetone', 'cas': '67-64-1', 'smiles': 'CC(C)=O',
+        'name_by_smiles': 'propan-2-one', 'smiles_source': 'input',
+        'cid_by_name': 180, 'cid_by_cas': 180, 'cid_by_smiles': 180,
+        'inchikey_by_name': 'IK', 'inchikey_by_cas': 'IK', 'inchikey_by_smiles': 'IK',
+        'inchikey_14_by_smiles': 'IK12345678', 'validated_cid': 180,
+        'validated_inchikey': 'IK', 'validated_canonical_inchikey_14': 'IK12345678',
+        'status': 'validated', 'rejection_reason': None, 'pubchem_error': None,
+        'exact_duplicate_group': None, 'stereo_duplicate_group': None,
+    }]
+
+    v.save_results(output_format="xlsx")
+
+    xlsx_files = list(tmp_path.glob("validation_results_*.xlsx"))
+    assert len(xlsx_files) == 1
+
+    wb = openpyxl.load_workbook(xlsx_files[0])
+    ws = wb.active
+    headers = {cell.value: cell.column for cell in ws[1]}
+
+    for col_name in ('cid_by_name', 'cid_by_cas', 'cid_by_smiles', 'validated_cid'):
+        col = headers[col_name]
+        cell = ws.cell(row=2, column=col)
+        assert cell.hyperlink is not None, f"{col_name} should have a hyperlink"
+        assert "180" in cell.hyperlink.target
+
+
+@pytest.mark.fast
 def test_save_results_auto_folder(tmp_path, mocker, monkeypatch):
     """save_results with 'auto' creates output/{stem}/ subfolder."""
     csv_file = tmp_path / "my_chemicals.csv"
@@ -500,7 +560,7 @@ def test_save_results_auto_folder(tmp_path, mocker, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     v = UnifiedChemicalValidator(str(csv_file), output_folder="auto")
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     v.validate_csv()
     success = v.save_results()
@@ -516,35 +576,39 @@ def test_save_results_auto_folder(tmp_path, mocker, monkeypatch):
 
 @pytest.mark.fast
 def test_query_pubchem_success(validator, mocker):
-    """Successful PubChem query returns CID and InChIKey."""
+    """Successful PubChem query returns CID, InChIKey, and IUPAC name."""
     mock_compound = MagicMock()
     mock_compound.cid = "2244"
     mock_compound.inchikey = "BSYNRYMUTXBXSQ"
+    mock_compound.iupac_name = "aspirin"
     mocker.patch("pubchempy.get_compounds", return_value=[mock_compound])
     mocker.patch("src.validator.time.sleep")
 
-    cid, inchikey = validator.query_pubchem_cid_and_inchikey("aspirin", "name")
+    cid, inchikey, name = validator.query_pubchem_cid_and_inchikey("aspirin", "name")
     assert cid == "2244"
     assert inchikey == "BSYNRYMUTXBXSQ"
+    assert name == "aspirin"
 
 
 @pytest.mark.fast
 def test_query_pubchem_empty_identifier(validator):
-    """Empty identifier returns (None, None) without calling PubChem."""
-    cid, inchikey = validator.query_pubchem_cid_and_inchikey(None, "name")
+    """Empty identifier returns (None, None, None) without calling PubChem."""
+    cid, inchikey, name = validator.query_pubchem_cid_and_inchikey(None, "name")
     assert cid is None
     assert inchikey is None
+    assert name is None
 
 
 @pytest.mark.fast
 def test_query_pubchem_exception(validator, mocker):
-    """PubChem exception returns (None, None) gracefully."""
+    """PubChem exception returns (None, None, None) gracefully."""
     mocker.patch("pubchempy.get_compounds", side_effect=Exception("timeout"))
     mocker.patch("src.validator.time.sleep")
 
-    cid, inchikey = validator.query_pubchem_cid_and_inchikey("badquery", "name")
+    cid, inchikey, name = validator.query_pubchem_cid_and_inchikey("badquery", "name")
     assert cid is None
     assert inchikey is None
+    assert name is None
 
 
 @pytest.mark.fast
@@ -558,21 +622,23 @@ def test_query_pubchem_bad_request_no_retry(validator, mocker):
     )
     mocker.patch("src.validator.time.sleep")
 
-    cid, inchikey = validator.query_pubchem_cid_and_inchikey("Cdd", "smiles")
+    cid, inchikey, name = validator.query_pubchem_cid_and_inchikey("Cdd", "smiles")
     assert cid is None
     assert inchikey is None
+    assert name is None
     assert mock_get.call_count == 1
 
 
 @pytest.mark.fast
 def test_query_pubchem_no_results(validator, mocker):
-    """PubChem returns empty list -> (None, None)."""
+    """PubChem returns empty list -> (None, None, None)."""
     mocker.patch("pubchempy.get_compounds", return_value=[])
     mocker.patch("src.validator.time.sleep")
 
-    cid, inchikey = validator.query_pubchem_cid_and_inchikey("unknown", "name")
+    cid, inchikey, name = validator.query_pubchem_cid_and_inchikey("unknown", "name")
     assert cid is None
     assert inchikey is None
+    assert name is None
 
 
 # ── get_smiles_from_pubchem ─────────────────────────────────────────────
@@ -609,7 +675,7 @@ def test_get_smiles_exception(validator, mocker):
 @pytest.mark.fast
 def test_retrieve_smiles_both_match(validator, mocker):
     """Both name and CAS resolve to same CID, SMILES retrieved."""
-    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=("123", "IK"))
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=("123", "IK", None))
     mocker.patch.object(validator, "get_smiles_from_pubchem", return_value="CC(=O)O")
 
     smiles, cid_name, cid_cas, reason = validator.retrieve_smiles(1, "Acetic acid", "64-19-7")
@@ -621,8 +687,8 @@ def test_retrieve_smiles_both_match(validator, mocker):
 def test_retrieve_smiles_discordance(validator, mocker):
     """Name and CAS resolve to different CIDs."""
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "IK1"),  # by name
-        ("456", "IK2"),  # by CAS
+        ("123", "IK1", None),  # by name
+        ("456", "IK2", None),  # by CAS
     ])
 
     smiles, cid_name, cid_cas, reason = validator.retrieve_smiles(1, "A", "64-19-7")
@@ -633,7 +699,7 @@ def test_retrieve_smiles_discordance(validator, mocker):
 @pytest.mark.fast
 def test_retrieve_smiles_not_found(validator, mocker):
     """Neither identifier found in PubChem."""
-    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     smiles, cid_name, cid_cas, reason = validator.retrieve_smiles(1, "Unknown", "00-00-0")
     assert smiles is None
@@ -643,7 +709,7 @@ def test_retrieve_smiles_not_found(validator, mocker):
 @pytest.mark.fast
 def test_retrieve_smiles_no_smiles_available(validator, mocker):
     """CIDs match but no SMILES available for that compound."""
-    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=("123", "IK"))
+    mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", return_value=("123", "IK", None))
     mocker.patch.object(validator, "get_smiles_from_pubchem", return_value=None)
 
     smiles, cid_name, cid_cas, reason = validator.retrieve_smiles(1, "Complex", "12-34-5")
@@ -660,9 +726,9 @@ def test_validate_chemical_retrieval_mode_success(validator, mocker):
 
     mocker.patch.object(validator, "retrieve_smiles", return_value=("CC(=O)O", "123", "123", None))
     mocker.patch.object(validator, "query_pubchem_cid_and_inchikey", side_effect=[
-        ("123", "INCHIKEY123"),  # by name
-        ("123", "INCHIKEY123"),  # by CAS
-        ("123", "INCHIKEY123"),  # by SMILES
+        ("123", "INCHIKEY123", None),  # by name
+        ("123", "INCHIKEY123", None),  # by CAS
+        ("123", "INCHIKEY123", None),  # by SMILES
     ])
 
     result = validator.validate_chemical(1, "Acetic acid", "64-19-7", None)
@@ -693,7 +759,7 @@ def test_save_results_cwd(tmp_path, mocker, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     v = UnifiedChemicalValidator(str(csv_file), output_folder=None)
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
     v.validate_csv()
     success = v.save_results()
 
@@ -710,7 +776,7 @@ def test_save_results_csv_only(tmp_path, mocker, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     v = UnifiedChemicalValidator(str(csv_file), output_folder=None)
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
     v.validate_csv()
     success = v.save_results(output_format="csv")
 
@@ -730,7 +796,7 @@ def test_validate_csv_progress_callback(tmp_path, mocker):
     csv_file.write_text("Name,CAS,SMILES\nAcetone,67-64-1,CC(C)=O\n")
 
     v = UnifiedChemicalValidator(str(csv_file))
-    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None))
+    mocker.patch.object(v, "query_pubchem_cid_and_inchikey", return_value=(None, None, None))
 
     messages = []
     v.validate_csv(progress_callback=messages.append)

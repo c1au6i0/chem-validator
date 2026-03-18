@@ -232,7 +232,7 @@ class UnifiedChemicalValidator:
         identifier: Optional[str],
         namespace: str = 'name',
         max_retries: int = 3,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
         Query PubChem for CID and InChIKey with rate limiting and retry.
 
@@ -244,10 +244,10 @@ class UnifiedChemicalValidator:
             max_retries: Number of retry attempts on transient errors
 
         Returns:
-            Tuple of (cid, inchikey), both None if not found
+            Tuple of (cid, inchikey, iupac_name), all None if not found
         """
         if not identifier:
-            return None, None
+            return None, None, None
 
         logger.debug("PubChem query start: namespace=%s identifier=%r", namespace, identifier)
 
@@ -269,6 +269,7 @@ class UnifiedChemicalValidator:
                     compound = compounds[0]
                     cid = compound.cid
                     inchikey = compound.inchikey if hasattr(compound, 'inchikey') else None
+                    iupac_name = compound.iupac_name if hasattr(compound, 'iupac_name') else None
                     logger.debug(
                         "PubChem query resolved: namespace=%s identifier=%r cid=%r inchikey=%r",
                         namespace,
@@ -276,9 +277,9 @@ class UnifiedChemicalValidator:
                         cid,
                         inchikey,
                     )
-                    return cid, inchikey
+                    return cid, inchikey, iupac_name
                 logger.debug("PubChem query no results: namespace=%s identifier=%r", namespace, identifier)
-                return None, None  # found nothing – no point retrying
+                return None, None, None  # found nothing – no point retrying
             except Exception as e:
                 self._last_pubchem_error = f"{type(e).__name__}: {e}"
                 err_lower = str(e).lower()
@@ -308,7 +309,7 @@ class UnifiedChemicalValidator:
                 # Non-transient failures should not be retried.
                 break
 
-        return None, None
+        return None, None, None
 
     def get_smiles_from_pubchem(self, cid: str, max_retries: int = 3) -> Optional[str]:
         """Retrieve SMILES from PubChem CID with retry on transient errors."""
@@ -363,13 +364,13 @@ class UnifiedChemicalValidator:
         logger.info(f"Retrieving SMILES for row {row_num}...")
 
         # Query by Name
-        cid_by_name, _ = self.query_pubchem_cid_and_inchikey(name, 'name')
+        cid_by_name, _, _ = self.query_pubchem_cid_and_inchikey(name, 'name')
 
         # Query by CAS
         cas_normalized = self.normalize_cas(cas)
-        cid_by_cas, _ = self.query_pubchem_cid_and_inchikey(cas_normalized, 'name')
+        cid_by_cas, _, _ = self.query_pubchem_cid_and_inchikey(cas_normalized, 'name')
         if not cid_by_cas and cas_normalized:
-            cid_by_cas, _ = self.query_pubchem_cid_and_inchikey(
+            cid_by_cas, _, _ = self.query_pubchem_cid_and_inchikey(
                 cas_normalized.replace('-', ''), 'name'
             )
 
@@ -423,6 +424,7 @@ class UnifiedChemicalValidator:
             'cas': cas,
             'smiles': smiles,
             'smiles_source': 'input' if not _is_missing(smiles) else None,
+            'name_by_smiles': None,
             'cid_by_name': None,
             'cid_by_cas': None,
             'cid_by_smiles': None,
@@ -497,18 +499,18 @@ class UnifiedChemicalValidator:
         # Query PubChem for all three identifiers
 
         # Query by Name
-        cid_by_name, inchikey_by_name = self.query_pubchem_cid_and_inchikey(name, 'name')
+        cid_by_name, inchikey_by_name, _ = self.query_pubchem_cid_and_inchikey(name, 'name')
         if self._last_pubchem_error:
             pubchem_errors.append(f"name={self._last_pubchem_error}")
         result['cid_by_name'] = cid_by_name
         result['inchikey_by_name'] = inchikey_by_name
 
         # Query by CAS
-        cid_by_cas, inchikey_by_cas = self.query_pubchem_cid_and_inchikey(cas_normalized, 'name')
+        cid_by_cas, inchikey_by_cas, _ = self.query_pubchem_cid_and_inchikey(cas_normalized, 'name')
         if self._last_pubchem_error:
             pubchem_errors.append(f"cas={self._last_pubchem_error}")
         if not cid_by_cas and cas_normalized:
-            cid_by_cas, inchikey_by_cas = self.query_pubchem_cid_and_inchikey(
+            cid_by_cas, inchikey_by_cas, _ = self.query_pubchem_cid_and_inchikey(
                 cas_normalized.replace('-', ''), 'name'
             )
             if self._last_pubchem_error:
@@ -517,7 +519,7 @@ class UnifiedChemicalValidator:
         result['inchikey_by_cas'] = inchikey_by_cas
 
         # Query by SMILES
-        cid_by_smiles, inchikey_by_smiles = self.query_pubchem_cid_and_inchikey(smiles, 'smiles')
+        cid_by_smiles, inchikey_by_smiles, name_by_smiles = self.query_pubchem_cid_and_inchikey(smiles, 'smiles')
         if (cid_by_smiles is None) and getattr(self, "_last_pubchem_error_kind", None) == "bad_input":
             result['status'] = 'rejected'
             result['rejection_reason'] = 'invalid_smiles'
@@ -537,6 +539,7 @@ class UnifiedChemicalValidator:
         result['inchikey_by_smiles'] = inchikey_by_smiles
         if inchikey_by_smiles:
             result['inchikey_14_by_smiles'] = inchikey_by_smiles[:14]
+        result['name_by_smiles'] = name_by_smiles
 
         if pubchem_errors:
             result['pubchem_error'] = "; ".join(pubchem_errors)
@@ -721,7 +724,7 @@ class UnifiedChemicalValidator:
 
         # Quick PubChem connectivity preflight. This helps distinguish
         # "identifier not found" from "PubChem unreachable" in logs.
-        preflight_cid, _ = self.query_pubchem_cid_and_inchikey("water", "name")
+        preflight_cid, _, _ = self.query_pubchem_cid_and_inchikey("water", "name")
         if preflight_cid is None and self._last_pubchem_error:
             msg = (
                 "PubChem connectivity check failed. "
@@ -835,6 +838,7 @@ class UnifiedChemicalValidator:
             'name',
             'cas',
             'smiles',
+            'name_by_smiles',
             'smiles_source',
             'cid_by_name',
             'cid_by_cas',
@@ -891,6 +895,7 @@ class UnifiedChemicalValidator:
         if output_format in {"xlsx", "both"}:
             # Write to Excel with formatting
             try:
+                from openpyxl.styles import Font
                 from openpyxl.utils import get_column_letter
 
                 with pd.ExcelWriter(output_file_xlsx, engine='openpyxl') as writer:
@@ -912,6 +917,17 @@ class UnifiedChemicalValidator:
                         width = min(max_len, 50)
                         col_letter = get_column_letter(i + 1)
                         worksheet.column_dimensions[col_letter].width = width
+
+                    # Add hyperlinks on CID columns
+                    _cid_link_cols = {'cid_by_name', 'cid_by_cas', 'cid_by_smiles', 'validated_cid'}
+                    _pubchem_url = "https://pubchem.ncbi.nlm.nih.gov/compound/{}"
+                    for col_idx, col_name in enumerate(all_df.columns, start=1):
+                        if col_name in _cid_link_cols:
+                            for row_idx in range(2, len(all_df) + 2):
+                                cell = worksheet.cell(row=row_idx, column=col_idx)
+                                if cell.value is not None:
+                                    cell.hyperlink = _pubchem_url.format(cell.value)
+                                    cell.font = Font(color="0563C1", underline="single")
 
                 logger.info(f"Results saved to: {output_file_xlsx}")
             except Exception as e:

@@ -101,15 +101,16 @@ Results file(s) named `validation_results_{input}_{timestamp}.xlsx` and/or `vali
 | `name` | Chemical name |
 | `cas` | Normalized CAS number |
 | `smiles` | SMILES string (from input or retrieved) |
+| `name_by_smiles` | IUPAC name returned by PubChem when querying by SMILES — useful for spotting misspelled input names |
 | `smiles_source` | `input` or `pubchem` |
-| `cid_by_name` | CID resolved from name |
-| `cid_by_cas` | CID resolved from CAS |
-| `cid_by_smiles` | CID resolved from SMILES |
+| `cid_by_name` | CID resolved from name (xlsx: clickable hyperlink to PubChem compound page) |
+| `cid_by_cas` | CID resolved from CAS (xlsx: clickable hyperlink to PubChem compound page) |
+| `cid_by_smiles` | CID resolved from SMILES (xlsx: clickable hyperlink to PubChem compound page) |
 | `inchikey_by_name` | InChIKey resolved from name |
 | `inchikey_by_cas` | InChIKey resolved from CAS |
 | `inchikey_by_smiles` | InChIKey resolved from SMILES |
 | `inchikey_14_by_smiles` | First 14 characters of `inchikey_by_smiles` — connectivity layer, used for stereoisomer grouping |
-| `validated_cid` | Confirmed CID (when all identifiers match) |
+| `validated_cid` | Confirmed CID (when all identifiers match; xlsx: clickable hyperlink to PubChem compound page) |
 | `validated_inchikey` | Confirmed InChIKey (when all identifiers match) |
 | `status` | `validated`, `rejected`, or `stereo_duplicate` |
 | `rejection_reason` | Reason for rejection (if applicable) |
@@ -122,7 +123,7 @@ Results file(s) named `validation_results_{input}_{timestamp}.xlsx` and/or `vali
 |--------|---------|
 | `validated` | All resolved CIDs match |
 | `rejected` | Validation failed (see `rejection_reason`) |
-| `stereo_duplicate` | Not rejected, but shares the 14-character canonical InChIKey with an earlier entry |
+| `stereo_duplicate` | Not rejected, but shares the 14-character connectivity InChIKey with an earlier entry |
 
 ### Rejection Reasons
 
